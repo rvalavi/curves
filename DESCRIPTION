@@ -1,16 +1,16 @@
-Package: aaa
+Package: curves
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Generating Response Curves From Any Fitted Model
+
 Version: 0.1.0
 Authors@R: c(
     person(
-      "Jane", "Doe",
-      email = "jane@example.com",
+      "Roozbeh", "Valavi",
+      email = "valavi.r@gmail.com",
       role = c("aut", "cre")
     )
   )
-Description: More about what it does (maybe more than one line).
-    Continuation lines should be indented.
+Description: Paritial dependence plot (PDP) or response curves from any fitted model using ggplot.
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true
