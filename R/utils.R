@@ -1,21 +1,22 @@
 # get summary of both numeric and factor variables
 calc_summary <- function(x, ...) {
     if (is.factor(x)) {
-        # For factor vectors: calculate mode(s)
+        # for factor vectors: calculate mode(s)
         freq_table <- table(x)
         max_freq <- max(freq_table)
         modes <- names(freq_table[freq_table == max_freq])
         result <- c(
             min = min(as.numeric(levels(x))[x], ...),
             mean = as.numeric(modes),
-            max = max(as.numeric(levels(x))[x], ...)
+            max = max(as.numeric(levels(x))[x], ...),
+            sd = 1
         )
     } else if (is.numeric(x)) {
-        # For numeric vectors: calculate min, max, and the specified function
         result <- c(
             min = min(x, ...),
             mean = mean(x, ...),
-            max = max(x, ...)
+            max = max(x, ...),
+            std = sd(x, ...)
         )
     } else {
         stop("Input must be either numeric or factor.")
