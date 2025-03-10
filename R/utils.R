@@ -1,9 +1,33 @@
-# estimate mean of raster faster
-gestimate <- function(x) {
-    apply(
+# get summary of both numeric and factor variables
+calc_summary <- function(x, ...) {
+    if (is.factor(x)) {
+        # For factor vectors: calculate mode(s)
+        freq_table <- table(x)
+        max_freq <- max(freq_table)
+        modes <- names(freq_table[freq_table == max_freq])
+        result <- c(
+            min = min(as.numeric(levels(x))[x], ...),
+            mean = as.numeric(modes),
+            max = max(as.numeric(levels(x))[x], ...)
+        )
+    } else if (is.numeric(x)) {
+        # For numeric vectors: calculate min, max, and the specified function
+        result <- c(
+            min = min(x, ...),
+            mean = mean(x, ...),
+            max = max(x, ...)
+        )
+    } else {
+        stop("Input must be either numeric or factor.")
+    }
+    return(result)
+}
+
+# estimate summary stats of a raster faster
+gestimate <- function(x, fun) {
+    sapply(
         terra::spatSample(x, method = "regular", size = 5e5),
-        MARGIN = 2,
-        FUN = mean,
+        FUN = fun,
         na.rm = TRUE
     )
 }
@@ -12,34 +36,9 @@ gestimate <- function(x) {
 get_range <- function(x) {
     require(terra)
     if(is(x, "SpatRaster")) {
-        if (all(x@ptr@.xData$hasRange)) {
-            rng <- t(
-                cbind(
-                    x@ptr@.xData$range_min,
-                    gestimate(x),
-                    x@ptr@.xData$range_max
-                )
-            )
-        } else {
-            rng <- t(
-                cbind(
-                    terra::global(x, fun = "min", na.rm = TRUE),
-                    terra::global(x, fun = "mean", na.rm = TRUE),
-                    terra::global(x, fun = "max", na.rm = TRUE)
-                )
-            )
-        }
+        rng <- gestimate(x, fun = calc_summary)
     } else {
-        f <- function(x) {
-            return(
-                c(
-                    min(x),
-                    mean(x),
-                    max(x)
-                )
-            )
-        }
-        rng <- apply(x, 2, f)
+        rng <- sapply(x, FUN = calc_summary)
     }
 
     return(rng)
