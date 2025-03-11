@@ -1,7 +1,6 @@
 Package: curves
 Type: Package
 Title: Generating Response Curves From Any Fitted Model
-
 Version: 0.1.0
 Authors@R: c(
     person(
@@ -14,3 +13,18 @@ Description: Paritial dependence plot (PDP) or response curves from any fitted m
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true
+Depends:
+  R (>= 3.5.0)
+Imports:
+  ggplot2 (>= 3.3.6)
+Suggests:
+  terra (>= 1.6-41),
+  cowplot,
+  shiny (>= 1.7),
+  methods,
+  knitr,
+  rmarkdown,
+  testthat (>= 3.0.0),
+  covr
+RoxygenNote: 7.3.2
+VignetteBuilder: knitr

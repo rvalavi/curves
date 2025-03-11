@@ -1,26 +1,35 @@
-#' Response curve plot
+#' Univariate response curve plot
 #'
-#' @param model
-#' @param x
-#' @param predict_data
-#' @param fun
-#' @param ...
-#' @param n
-#' @param ylab
-#' @param nrows
-#' @param ncols
-#' @param rug
-#' @param ylim
-#' @param color
+#' This function generates response curves for a given model by varying one predictor at a time while keeping others constant.
 #'
-#' @returns
+#' @param model A fitted model object that supports prediction.
+#' @param x A data frame or raster containing predictor variables. If `predict_data` is provided, this argument is ignored.
+#' @param predict_data A data frame containing values at which predictions should be made. If `NULL`, `x` must be provided.
+#' @param fun A function used to generate predictions from the model. Defaults to `predict`.
+#' @param ... Additional arguments passed to `fun`.
+#' @param n Integer, number of points to sample for each predictor variable (default: 100).
+#' @param ylab Character, label for the y-axis (default: "Prediction").
+#' @param nrows Integer, number of rows in the plot grid. If `NULL`, it is automatically determined.
+#' @param ncols Integer, number of columns in the plot grid. If `NULL`, it is automatically determined.
+#' @param rug Logical, whether to include a rug plot along the x-axis (default: `TRUE`).
+#' @param ylim Numeric vector of length 2, specifying the limits of the y-axis. If `NULL`, limits are automatically set.
+#' @param color Character, colour of the response curve (default: "orangered2").
+#'
+#' @return A `ggplot2` object containing the response curves arranged in a grid.
+#'
 #' @export
 #'
 #' @examples
-response <- function(model, x = NULL, predict_data = NULL,
+#' # Example usage with a fitted model
+#' library(randomForest)
+#' data(iris)
+#' model <- randomForest(Sepal.Length ~ ., data = iris[, 1:4])
+#' response_plot <- univariate(model, x = iris[, 2:4])
+#' print(response_plot)
+univariate <- function(model, x = NULL, predict_data = NULL,
                      fun = predict, ..., n = 100, ylab = "Prediction",
                      rug = TRUE, ylim = NULL,
-                     color = "orangered2",
+                     color = "deepskyblue2",
                      nrows = NULL, ncols = NULL) {
 
     if (is.null(predict_data)) {
@@ -32,10 +41,13 @@ response <- function(model, x = NULL, predict_data = NULL,
     }
 
     # check if all x are in predict_data
+    # get x from model if applicable
+    # don't replace x with predict_data
 
     nms <- names(x)
     rngs <- get_range(x)
     nvars <- if(.is_rast(x)) terra::nlyr(x) else ncol(x)
+    nsamp <- nrow(x)
 
     # define row and columns of the plots
     ncols <- if(is.null(ncols)) ceiling(sqrt(nvars))
@@ -60,15 +72,13 @@ response <- function(model, x = NULL, predict_data = NULL,
         a[,i] <- b[,i]
         x <- as.data.frame(a)
         data.frame(
-            x = x[[i]],
+            x = x[[i]], # get the ith column
             y = as.numeric(fun(model, x, ...))
         )
     }
 
-    tables <- list()
-    for (i in seq_len(nvars)) {
-        tables[[i]] <- f(means, ranges, i)
-    }
+    # get the variables table
+    tables <- lapply(1:nvars, function(i) f(means, ranges, i))
 
     # get mins and maxes
     limits <- c(
@@ -79,7 +89,7 @@ response <- function(model, x = NULL, predict_data = NULL,
     plots <- list()
     for (j in seq_along(tables)) {
         name <- nms[j]
-        plots[[j]] <- plotting(
+        plots[[j]] <- plot_1D(
             df = tables[[j]],
             dat = if (rug) data.frame(var = unique(x[[name]])) else 0,
             fact = ifelse(j %in% facts, TRUE, FALSE),
@@ -98,22 +108,26 @@ response <- function(model, x = NULL, predict_data = NULL,
 
 
 # plotting function
-plotting <- function(df, dat, fact, rug, x_name, y_name, ylim, color) {
+plot_1D <- function(df, dat, fact, rug, x_name, y_name, ylim, color) {
+    geom_conf <- if (ncol(df) > 2) {
+        geom_ribbon(aes(ymin = y - std, ymax = y + std), fill = "grey70", alpha = 0.6)
+    } else NULL
+
     rug_geom <- if (rug && !fact) {
         geom_rug(data = dat, aes(x = var),
                  sides = "b", color = "black", alpha = 0.5,
                  inherit.aes = FALSE)
-    } else {
-        NULL
-    }
+    } else NULL
+
     plot_geom <- if (fact) {
         geom_segment(aes(x = x - 0.5, xend = x + 0.5, y = y, yend = y),
                      color = color, size = 1.2)
     } else {
-        geom_line(color = color, size = 1)
+        geom_line(color = color, size = 0.7)
     }
     plt <- ggplot(df, aes(x = x, y = y)) +
             plot_geom +
+            geom_conf +
             rug_geom +
             scale_y_continuous(limits = ylim) +
             theme_bw() + # base_size = 12
@@ -121,7 +135,4 @@ plotting <- function(df, dat, fact, rug, x_name, y_name, ylim, color) {
 
     return(plt)
 }
-
-
-
 

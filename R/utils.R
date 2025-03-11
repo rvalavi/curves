@@ -1,3 +1,17 @@
+# summarise the prediction tables
+summarise_dfs <- function(li, ...) {
+    predictions <- lapply(li, function(x) x[[2]])
+    colmn_pred <- do.call(cbind, predictions)
+    return(
+        data.frame(
+            x = li[[1]][[1]],
+            y = apply(colmn_pred, 1, mean, ...),
+            std = apply(colmn_pred, 1, sd, ...)
+        )
+    )
+}
+
+
 # get summary of both numeric and factor variables
 calc_summary <- function(x, ...) {
     if (is.factor(x)) {
@@ -35,8 +49,7 @@ gestimate <- function(x, fun) {
 
 # get the range of a raster or matrix
 get_range <- function(x) {
-    require(terra)
-    if(is(x, "SpatRaster")) {
+    if(.is_rast(x)) {
         rng <- gestimate(x, fun = calc_summary)
     } else {
         rng <- sapply(x, FUN = calc_summary)
