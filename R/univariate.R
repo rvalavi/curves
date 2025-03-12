@@ -109,7 +109,7 @@ univariate <- function(model, x = NULL, predict_data = NULL,
 
 # plotting function
 plot_1D <- function(df, dat, fact, rug, x_name, y_name, ylim, color) {
-    geom_conf <- if (ncol(df) > 2) {
+    se_geom <- if (ncol(df) > 2) {
         geom_ribbon(aes(ymin = y - std, ymax = y + std), fill = "grey70", alpha = 0.6)
     } else NULL
 
@@ -127,7 +127,7 @@ plot_1D <- function(df, dat, fact, rug, x_name, y_name, ylim, color) {
     }
     plt <- ggplot(df, aes(x = x, y = y)) +
             plot_geom +
-            geom_conf +
+            se_geom +
             rug_geom +
             scale_y_continuous(limits = ylim) +
             theme_bw() + # base_size = 12
