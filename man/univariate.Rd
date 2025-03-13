@@ -2,7 +2,7 @@
 % Please edit documentation in R/univariate.R
 \name{univariate}
 \alias{univariate}
-\title{Response curve plot}
+\title{Univariate response curve plot}
 \usage{
 univariate(
   model,
@@ -14,7 +14,7 @@ univariate(
   ylab = "Prediction",
   rug = TRUE,
   ylim = NULL,
-  color = "orangered2",
+  color = "deepskyblue2",
   nrows = NULL,
   ncols = NULL
 )
@@ -54,7 +54,7 @@ This function generates response curves for a given model by varying one predict
 # Example usage with a fitted model
 library(randomForest)
 data(iris)
-model <- randomForest(Sepal.Length ~ ., data = iris)
-response_plot <- univariate(model, x = iris[, -1])
+model <- randomForest(Sepal.Length ~ ., data = iris[, 1:4])
+response_plot <- univariate(model, x = iris[, 2:4])
 print(response_plot)
 }

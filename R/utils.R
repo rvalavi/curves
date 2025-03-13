@@ -1,10 +1,11 @@
 # summarise the prediction tables
-summarise_dfs <- function(li, ...) {
-    predictions <- lapply(li, function(x) x[[2]])
+agg_tabels <- function(li, i, ...) {
+    # get the 2nd column (predictons) in the ith table
+    predictions <- lapply(li, function(x) x[[i]][[2]])
     colmn_pred <- do.call(cbind, predictions)
     return(
         data.frame(
-            x = li[[1]][[1]],
+            x = li[[1]][[1]], # get the 1st column (variable) of a table
             y = apply(colmn_pred, 1, mean, ...),
             std = apply(colmn_pred, 1, sd, ...)
         )

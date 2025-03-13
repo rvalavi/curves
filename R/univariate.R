@@ -94,6 +94,7 @@ univariate <- function(model, x = NULL, predict_data = NULL,
             dat = if (rug) data.frame(var = unique(x[[name]])) else 0,
             fact = ifelse(j %in% facts, TRUE, FALSE),
             rug = rug,
+            se = FALSE,
             x_name = name,
             y_name = ylab,
             color = color,
@@ -108,9 +109,10 @@ univariate <- function(model, x = NULL, predict_data = NULL,
 
 
 # plotting function
-plot_1D <- function(df, dat, fact, rug, x_name, y_name, ylim, color) {
-    se_geom <- if (ncol(df) > 2) {
-        geom_ribbon(aes(ymin = y - std, ymax = y + std), fill = "grey70", alpha = 0.6)
+plot_1D <- function(df, dat, fact, rug, se, x_name, y_name, ylim, color, ribcol="grey85") {
+
+    se_geom <- if (ncol(df) > 2 && !fact && se) {
+        geom_ribbon(aes(ymin = y - std, ymax = y + std), fill = ribcol, alpha = 0.6)
     } else NULL
 
     rug_geom <- if (rug && !fact) {
@@ -119,17 +121,20 @@ plot_1D <- function(df, dat, fact, rug, x_name, y_name, ylim, color) {
                  inherit.aes = FALSE)
     } else NULL
 
-    plot_geom <- if (fact) {
-        geom_segment(aes(x = x - 0.5, xend = x + 0.5, y = y, yend = y),
+    if (fact) {
+        plot_geom <- geom_segment(aes(x = x - 0.5, xend = x + 0.5, y = y, yend = y),
                      color = color, size = 1.2)
+        xv <- unique(df$x)
     } else {
-        geom_line(color = color, size = 0.7)
+        plot_geom <- geom_line(color = color, size = 0.7)
     }
+
     plt <- ggplot(df, aes(x = x, y = y)) +
-            plot_geom +
             se_geom +
+            plot_geom +
             rug_geom +
             scale_y_continuous(limits = ylim) +
+            switch(fact, scale_x_discrete(limits = factor(seq_along(xv)), labels = xv)) +
             theme_bw() + # base_size = 12
             labs(x = x_name, y = y_name)
 

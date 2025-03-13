@@ -8,5 +8,4 @@
 #' @name curves
 #' @docType package
 #' @author Roozbeh Valavi
-#' @import ggplot
 NULL

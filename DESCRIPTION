@@ -16,14 +16,13 @@ LazyData: true
 Depends:
   R (>= 3.5.0)
 Imports:
-  ggplot2 (>= 3.3.6)
+  ggplot2 (>= 3.3.6),
 Suggests:
-  terra (>= 1.6-41),
+  terra >= 1.6-41,
   cowplot,
   shiny (>= 1.7),
   methods,
   knitr,
-  rmarkdown,
   testthat (>= 3.0.0),
   covr
 RoxygenNote: 7.3.2
