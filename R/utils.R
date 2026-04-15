@@ -1,62 +1,161 @@
-# summarise the prediction tables
-agg_tabels <- function(li, i, ...) {
-    # get the 2nd column (predictons) in the ith table
-    predictions <- lapply(li, function(x) x[[i]][[2]])
-    colmn_pred <- do.call(cbind, predictions)
-    return(
-        data.frame(
-            x = li[[1]][[1]], # get the 1st column (variable) of a table
-            y = apply(colmn_pred, 1, mean, ...),
-            std = apply(colmn_pred, 1, sd, ...)
+# create a data frame of predictors while keeping raster support optional
+as_predictor_frame <- function(x, sample_size = NULL) {
+    if (.is_rast(x)) {
+        n_cells <- terra::ncell(x)
+        if (is.null(sample_size) || n_cells <= sample_size) {
+            return(terra::as.data.frame(x, na.rm = TRUE))
+        }
+
+        return(as.data.frame(
+            terra::spatSample(
+                x,
+                method = "regular",
+                size = sample_size,
+                na.rm = TRUE
+            )
+        ))
+    }
+
+    as.data.frame(x, check.names = FALSE)
+}
+
+
+validate_predictors <- function(x, sample_size = NULL) {
+    x_df <- as_predictor_frame(x, sample_size = sample_size)
+
+    if (ncol(x_df) == 0L) {
+        stop("x must contain at least one predictor")
+    }
+
+    supported <- vapply(
+        x_df,
+        function(column) is.numeric(column) || is.factor(column),
+        logical(1)
+    )
+
+    if (!all(supported)) {
+        unsupported <- names(x_df)[!supported]
+        stop(
+            "Only numeric and factor predictors are supported. Unsupported columns: ",
+            paste(unsupported, collapse = ", ")
         )
+    }
+
+    x_df
+}
+
+
+factor_mode <- function(x) {
+    x <- stats::na.omit(x)
+    if (!length(x)) {
+        stop("Predictors must contain at least one non-missing value")
+    }
+
+    freq_table <- table(x)
+    mode_level <- names(freq_table)[which.max(freq_table)]
+
+    factor(
+        mode_level,
+        levels = levels(x),
+        ordered = is.ordered(x)
     )
 }
 
 
-# get summary of both numeric and factor variables
-calc_summary <- function(x, ...) {
+reference_value <- function(x) {
+    x <- stats::na.omit(x)
+    if (!length(x)) {
+        stop("Predictors must contain at least one non-missing value")
+    }
+
     if (is.factor(x)) {
-        # for factor vectors: calculate mode(s)
-        freq_table <- table(x)
-        max_freq <- max(freq_table)
-        modes <- names(freq_table[freq_table == max_freq])
-        result <- c(
-            min = min(as.numeric(levels(x))[x], ...),
-            mean = as.numeric(modes),
-            max = max(as.numeric(levels(x))[x], ...),
-            sd = 1
-        )
-    } else if (is.numeric(x)) {
-        result <- c(
-            min = min(x, ...),
-            mean = mean(x, ...),
-            max = max(x, ...),
-            std = sd(x, ...)
-        )
-    } else {
-        stop("Input must be either numeric or factor.")
+        return(factor_mode(x))
     }
-    return(result)
+
+    if (!is.numeric(x)) {
+        stop("Only numeric and factor predictors are supported")
+    }
+
+    mean(x)
 }
 
-# estimate summary stats of a raster faster
-gestimate <- function(x, fun) {
-    sapply(
-        terra::spatSample(x, method = "regular", size = 5e5),
-        FUN = fun,
-        na.rm = TRUE
+
+curve_values <- function(x, n) {
+    x <- stats::na.omit(x)
+    if (!length(x)) {
+        stop("Predictors must contain at least one non-missing value")
+    }
+
+    if (is.factor(x)) {
+        observed_levels <- levels(x)[levels(x) %in% unique(as.character(x))]
+        return(factor(
+            observed_levels,
+            levels = levels(x),
+            ordered = is.ordered(x)
+        ))
+    }
+
+    if (!is.numeric(x)) {
+        stop("Only numeric and factor predictors are supported")
+    }
+
+    rng <- range(x)
+    seq(rng[1], rng[2], length.out = n)
+}
+
+
+build_reference_row <- function(x_df) {
+    data.frame(
+        lapply(x_df, reference_value),
+        check.names = FALSE
     )
 }
 
-# get the range of a raster or matrix
-get_range <- function(x) {
-    if(.is_rast(x)) {
-        rng <- gestimate(x, fun = calc_summary)
+
+build_curve_grid <- function(reference_row, column, values) {
+    grid <- reference_row[rep(1L, length(values)), , drop = FALSE]
+
+    if (is.factor(reference_row[[column]])) {
+        grid[[column]] <- factor(
+            as.character(values),
+            levels = levels(reference_row[[column]]),
+            ordered = is.ordered(reference_row[[column]])
+        )
     } else {
-        rng <- sapply(x, FUN = calc_summary)
+        grid[[column]] <- values
     }
 
-    return(rng)
+    grid
 }
 
 
+curve_limits <- function(values, padding = 0.1) {
+    rng <- range(values, na.rm = TRUE)
+    if (!all(is.finite(rng))) {
+        stop("Predictions must be finite to compute plot limits")
+    }
+
+    span <- diff(rng)
+    pad <- if (span == 0) {
+        max(abs(rng[1]), 1) * padding
+    } else {
+        span * padding
+    }
+
+    c(rng[1] - pad, rng[2] + pad)
+}
+
+
+sample_rug_values <- function(x_df, column, max_n = 5000L) {
+    values <- stats::na.omit(x_df[[column]])
+    if (!length(values)) {
+        return(data.frame(var = numeric(0)))
+    }
+
+    if (length(values) > max_n) {
+        index <- unique(round(seq(1, length(values), length.out = max_n)))
+        values <- values[index]
+    }
+
+    data.frame(var = values)
+}

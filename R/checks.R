@@ -1,6 +1,5 @@
-
 .is_rast <- function(x) {
-    is(x, "SpatRaster")
+    inherits(x, "SpatRaster")
 }
 
 
@@ -8,6 +7,9 @@
     if (.is_rast(x)) {
         terra::is.factor(x)
     } else {
-        sapply(x, is.factor)
+        vapply(x, is.factor, logical(1))
     }
 }
+
+
+utils::globalVariables(c("std", "var", "x", "y"))

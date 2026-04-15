@@ -9,21 +9,20 @@ Authors@R: c(
       role = c("aut", "cre")
     )
   )
-Description: Paritial dependence plot (PDP) or response curves from any fitted model using ggplot.
-License: What license is it under?
+Author: Roozbeh Valavi [aut, cre]
+Maintainer: Roozbeh Valavi <valavi.r@gmail.com>
+Description: Create univariate response curves for fitted models and compare
+    averaged response curves across multiple fitted models using ggplot2.
+License: GPL-3 + file LICENSE
 Encoding: UTF-8
-LazyData: true
 Depends:
   R (>= 3.5.0)
 Imports:
-  ggplot2 (>= 3.3.6),
-Suggests:
-  terra >= 1.6-41,
   cowplot,
-  shiny (>= 1.7),
-  methods,
-  knitr,
-  testthat (>= 3.0.0),
-  covr
-RoxygenNote: 7.3.2
-VignetteBuilder: knitr
+  ggplot2 (>= 3.3.6)
+Suggests:
+  terra (>= 1.6-41),
+  testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3

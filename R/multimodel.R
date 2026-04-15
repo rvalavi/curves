@@ -1,28 +1,49 @@
 #' Creating a multimodel response curve plot
 #'
-#' This function generates response curves for several models by varying one predictor at a time while keeping others constant.
+#' This function generates response curves for several models by varying one
+#' predictor at a time while keeping others constant.
 #'
-#' @param models A list object of all fitted model that supports prediction.
-#' @param x A data frame or raster containing predictor variables. If `predict_data` is provided, this argument is ignored.
-#' @param predict_data A data frame containing values at which predictions should be made. If `NULL`, `x` must be provided.
-#' @param fun A function used to generate predictions from the model. Defaults to `predict`.
+#' @param models A list object of fitted models that support prediction.
+#' @param x A data frame or raster containing predictor variables. If
+#'   `predict_data` is provided, this argument is ignored.
+#' @param predict_data A data frame containing values at which predictions
+#'   should be made. If `NULL`, `x` must be provided.
+#' @param fun A function used to generate predictions from the model. Defaults
+#'   to `predict`.
 #' @param ... Additional arguments passed to `fun`.
-#' @param n Integer, number of points to sample for each predictor variable (default: 100).
-#' @param ylab Character, label for the y-axis (default: "Prediction").
-#' @param nrows Integer, number of rows in the plot grid. If `NULL`, it is automatically determined.
-#' @param ncols Integer, number of columns in the plot grid. If `NULL`, it is automatically determined.
-#' @param rug Logical, whether to include a rug plot along the x-axis (default: `TRUE`).
-#' @param ylim Numeric vector of length 2, specifying the limits of the y-axis. If `NULL`, limits are automatically set.
-#' @param color Character, colour of the response curve (default: "orangered2").
-#' @param se Standard deviation of the the curve to be added there.
+#' @param n Integer, number of points to sample for each numeric predictor
+#'   variable (default: 100).
+#' @param ylab Character, label for the y-axis (default: `"Prediction"`).
+#' @param nrows Integer, number of rows in the plot grid. If `NULL`, it is
+#'   automatically determined.
+#' @param ncols Integer, number of columns in the plot grid. If `NULL`, it is
+#'   automatically determined.
+#' @param rug Logical, whether to include a rug plot along the x-axis (default:
+#'   `TRUE`).
+#' @param ylim Numeric vector of length 2, specifying the limits of the y-axis.
+#'   If `NULL`, limits are automatically set.
+#' @param color Character, colour of the response curve (default:
+#'   `"deepskyblue2"`).
+#' @param se Standard deviation ribbon for the averaged curve.
+#' @param se_color Fill colour of the standard deviation ribbon.
 #'
 #' @return A `ggplot2` object containing the response curves arranged in a grid.
 #'
 #' @export
 #'
 #' @examples
+#' data(iris)
+#' models <- list(
+#'   lm(Sepal.Length ~ Sepal.Width + Petal.Length, data = iris),
+#'   lm(Sepal.Length ~ Petal.Width + Petal.Length, data = iris)
+#' )
+#' response_plot <- multimodel(
+#'   models,
+#'   x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")]
+#' )
+#' print(response_plot)
 multimodel <- function(models, x = NULL, predict_data = NULL,
-                       fun = predict, ..., n = 100, ylab = "Prediction",
+                       fun = stats::predict, ..., n = 100, ylab = "Prediction",
                        se = TRUE,
                        rug = TRUE, ylim = NULL,
                        color = "deepskyblue2",
@@ -33,81 +54,84 @@ multimodel <- function(models, x = NULL, predict_data = NULL,
         if (is.null(x)) {
             stop("x or predict_data must be provided")
         }
+        x_source <- x
     } else {
-        x <- predict_data
+        x_source <- predict_data
     }
 
-    # check if all x are in predict_data
-    # get x from model if applicable
-    # don't replace x with predict_data
+    if (!length(models)) {
+        stop("models must contain at least one fitted model")
+    }
 
-    nms <- names(x)
-    nsamp <- nrow(x)
-    rngs <- get_range(x)
-    nvars <- if(.is_rast(x)) terra::nlyr(x) else ncol(x)
+    x_df <- validate_predictors(x_source, sample_size = 5000L)
+    nms <- names(x_df)
+    nvars <- ncol(x_df)
     nmod <- length(models)
 
-    # define row and columns of the plots
-    ncols <- if(is.null(ncols)) ceiling(sqrt(nvars))
-    nrows <- if(is.null(nrows)) ceiling(nvars / ncols)
+    ncols <- if (is.null(ncols)) ceiling(sqrt(nvars)) else ncols
+    nrows <- if (is.null(nrows)) ceiling(nvars / ncols) else nrows
 
-    # create the modelling matrices
-    means <- outer(rep(1, n), rngs[2, ]) # get the means
-    ranges <- apply(rngs, 2, function(arg) seq(arg[1], arg[3], length.out = n))
-
-    # sort out the factors
-    facts <- which(.is_factor(x))
-    if (length(facts) > 0) {
-        for (k in facts) {
-            unq <- unique(x[[k]])
-            ranges[, k] <- rep(unq, length.out = n)
-        }
-    }
-
-    # a: means
-    # b: ranges
-    f <- function(a, b, i) {
-        a[,i] <- b[,i]
-        x <- as.data.frame(a)
-        # predict the ith variable with all models
-        mat <- sapply(1:nmod, function(m) as.numeric(fun(models[[m]], x, ...)))
-        data.frame(
-            x = x[[i]], # get the ith column
-            y = rowMeans(mat),
-            std = apply(mat, 1, sd)
+    reference_row <- build_reference_row(x_df)
+    predictor_specs <- lapply(nms, function(name) {
+        list(
+            name = name,
+            is_factor = is.factor(x_df[[name]]),
+            values = curve_values(x_df[[name]], n = n)
         )
+    })
+    names(predictor_specs) <- nms
+
+    tables <- lapply(predictor_specs, function(spec) {
+        grid <- build_curve_grid(reference_row, spec$name, spec$values)
+        mat <- vapply(
+            models,
+            function(model) as.numeric(fun(model, grid, ...)),
+            numeric(nrow(grid))
+        )
+
+        std <- if (nmod > 1L) {
+            apply(mat, 1, stats::sd)
+        } else {
+            rep(0, nrow(grid))
+        }
+
+        data.frame(
+            x = grid[[spec$name]],
+            y = rowMeans(mat),
+            std = std
+        )
+    })
+
+    limits <- if (is.null(ylim)) {
+        curve_limits(unlist(lapply(tables, function(table) {
+            if (se) {
+                c(table$y - table$std, table$y + table$std)
+            } else {
+                table$y
+            }
+        })))
+    } else {
+        ylim
     }
 
-    # get the variables table
-    tables <- lapply(1:nvars, function(i) f(means, ranges, i))
-
-    # get mins and maxes
-    min_pred <- min(sapply(tables, FUN = function(x) min(x[[2]] - x[[3]])))
-    max_pred <- max(sapply(tables, FUN = function(x) max(x[[2]] + x[[3]])))
-    limits <- c(
-        min_pred + min_pred * 0.1,
-        max_pred + max_pred * 0.1
-    )
-
-    plots <- list()
-    for (j in seq_along(tables)) {
-        name <- nms[j]
-        plots[[j]] <- plot_1D(
-            df = tables[[j]],
-            dat = if (rug) data.frame(var = unique(x[[name]])) else 0,
-            fact = ifelse(j %in% facts, TRUE, FALSE),
-            rug = rug,
+    plots <- lapply(predictor_specs, function(spec) {
+        plot_1D(
+            df = tables[[spec$name]],
+            dat = if (rug && !spec$is_factor) {
+                sample_rug_values(x_df, spec$name)
+            } else {
+                NULL
+            },
+            fact = spec$is_factor,
+            rug = rug && !spec$is_factor,
             se = se,
-            x_name = name,
+            x_name = spec$name,
             y_name = ylab,
             color = color,
             ribcol = se_color,
-            ylim = if(is.null(ylim)) limits else ylim
+            ylim = limits
         )
-    }
+    })
 
-    return(
-        cowplot::plot_grid(plotlist = plots, nrow = nrows, ncol = ncols)
-    )
+    cowplot::plot_grid(plotlist = plots, nrow = nrows, ncol = ncols)
 }
-

@@ -1,11 +1,9 @@
 #' curves: Generating Response Curves From Any Fitted Model
 #'
 #'
-#' @seealso \code{\link{univariate}}, \code{\link{bivariate}}
+#' @seealso [univariate()], [multimodel()]
 #'
-#' @references Valavi,R. (2025) curves: an R pacakge for response curve plotting.
+#' @references Valavi, R. (2025) curves: an R package for response curve plotting.
 #'
-#' @name curves
-#' @docType package
-#' @author Roozbeh Valavi
-NULL
+#' @keywords internal
+"_PACKAGE"
