@@ -97,8 +97,7 @@ curves::univariate(
   dat,
   type = "prob",
   response = "1",
-  ylab = "Presence probability",
-  ylim = c(0, 1)
+  ylab = "Relative likelihood"
 )
 ```
 
@@ -113,7 +112,7 @@ curves::bivariate(
   plot_type = "heatmap",
   type = "prob",
   response = "1",
-  zlab = "Presence probability"
+  zlab = "Relative likelihood"
 )
 ```
 
@@ -131,6 +130,6 @@ curves::bivariate(
   pairs = c(3, 4),
   plot_type = "surface",
   fun = rf_prob,
-  zlab = "Presence probability"
+  zlab = "Relative likelihood"
 )
 ```
