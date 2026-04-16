@@ -24,6 +24,9 @@
 #'   If `NULL`, limits are automatically set.
 #' @param color Character, colour of the response curve (default:
 #'   `"deepskyblue2"`).
+#' @param response Optional column name or index to select when `fun` returns
+#'   multiple predictions per row. If `NULL` and exactly two prediction columns
+#'   are returned, the second column is used.
 #'
 #' @return A `ggplot2` object containing the response curves arranged in a grid.
 #'
@@ -41,6 +44,7 @@ univariate <- function(model, x = NULL, predict_data = NULL,
                        fun = stats::predict, ..., n = 100, ylab = "Prediction",
                        rug = TRUE, ylim = NULL,
                        color = "deepskyblue2",
+                       response = NULL,
                        nrows = NULL, ncols = NULL) {
 
     if (is.null(predict_data)) {
@@ -73,7 +77,11 @@ univariate <- function(model, x = NULL, predict_data = NULL,
         grid <- build_curve_grid(reference_row, spec$name, spec$values)
         data.frame(
             x = grid[[spec$name]],
-            y = as.numeric(fun(model, grid, ...))
+            y = extract_prediction_vector(
+                fun(model, grid, ...),
+                n = nrow(grid),
+                response = response
+            )
         )
     })
 
@@ -107,6 +115,10 @@ univariate <- function(model, x = NULL, predict_data = NULL,
 
 plot_1D <- function(df, dat, fact, rug, se, x_name, y_name, ylim, color,
                     ribcol = "grey85") {
+
+    if (!fact) {
+        df <- df[order(df$x), , drop = FALSE]
+    }
 
     plt <- ggplot2::ggplot(df, ggplot2::aes(x = x, y = y))
 

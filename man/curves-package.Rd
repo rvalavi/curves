@@ -8,13 +8,13 @@
 \description{
 \if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
 
-Create univariate response curves for fitted models and compare averaged response curves across multiple fitted models using ggplot2.
+Create univariate and bivariate response curves for fitted models and compare averaged response curves across multiple fitted models using ggplot2.
 }
 \references{
 Valavi, R. (2025) curves: an R package for response curve plotting.
 }
 \seealso{
-\code{\link[=univariate]{univariate()}}, \code{\link[=multimodel]{multimodel()}}
+\code{\link[=univariate]{univariate()}}, \code{\link[=bivariate]{bivariate()}}, \code{\link[=multimodel]{multimodel()}}
 }
 \author{
 \strong{Maintainer}: Roozbeh Valavi \email{valavi.r@gmail.com}

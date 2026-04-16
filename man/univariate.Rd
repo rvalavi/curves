@@ -15,6 +15,7 @@ univariate(
   rug = TRUE,
   ylim = NULL,
   color = "deepskyblue2",
+  response = NULL,
   nrows = NULL,
   ncols = NULL
 )
@@ -46,6 +47,10 @@ If \code{NULL}, limits are automatically set.}
 
 \item{color}{Character, colour of the response curve (default:
 \code{"deepskyblue2"}).}
+
+\item{response}{Optional column name or index to select when \code{fun} returns
+multiple predictions per row. If \code{NULL} and exactly two prediction columns
+are returned, the second column is used.}
 
 \item{nrows}{Integer, number of rows in the plot grid. If \code{NULL}, it is
 automatically determined.}

@@ -26,6 +26,9 @@
 #'   `"deepskyblue2"`).
 #' @param se Standard deviation ribbon for the averaged curve.
 #' @param se_color Fill colour of the standard deviation ribbon.
+#' @param response Optional column name or index to select when `fun` returns
+#'   multiple predictions per row. If `NULL` and exactly two prediction columns
+#'   are returned, the second column is used.
 #'
 #' @return A `ggplot2` object containing the response curves arranged in a grid.
 #'
@@ -48,6 +51,7 @@ multimodel <- function(models, x = NULL, predict_data = NULL,
                        rug = TRUE, ylim = NULL,
                        color = "deepskyblue2",
                        se_color = "grey80",
+                       response = NULL,
                        nrows = NULL, ncols = NULL) {
 
     if (is.null(predict_data)) {
@@ -85,7 +89,11 @@ multimodel <- function(models, x = NULL, predict_data = NULL,
         grid <- build_curve_grid(reference_row, spec$name, spec$values)
         mat <- vapply(
             models,
-            function(model) as.numeric(fun(model, grid, ...)),
+            function(model) extract_prediction_vector(
+                fun(model, grid, ...),
+                n = nrow(grid),
+                response = response
+            ),
             numeric(nrow(grid))
         )
 

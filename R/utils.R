@@ -159,3 +159,76 @@ sample_rug_values <- function(x_df, column, max_n = 5000L) {
 
     data.frame(var = values)
 }
+
+
+extract_prediction_vector <- function(prediction, n, response = NULL) {
+    if (is.data.frame(prediction) || is.matrix(prediction)) {
+        prediction_df <- as.data.frame(prediction, check.names = FALSE)
+
+        if (nrow(prediction_df) != n) {
+            stop(
+                "Prediction output must have ", n,
+                " rows, but got ", nrow(prediction_df), "."
+            )
+        }
+
+        if (ncol(prediction_df) == 1L) {
+            prediction <- prediction_df[[1L]]
+        } else {
+            if (is.null(response)) {
+                if (ncol(prediction_df) == 2L) {
+                    response <- 2L
+                } else {
+                    stop(
+                        "Prediction output has ", ncol(prediction_df),
+                        " columns. Supply `response` as a column name or index, ",
+                        "or pass a `fun` that returns a single prediction vector."
+                    )
+                }
+            }
+
+            if (is.character(response)) {
+                if (length(response) != 1L || !response %in% names(prediction_df)) {
+                    stop(
+                        "`response` must match a prediction column name. Available columns: ",
+                        paste(names(prediction_df), collapse = ", ")
+                    )
+                }
+                prediction <- prediction_df[[response]]
+            } else if (is.numeric(response) && length(response) == 1L && !is.na(response)) {
+                response <- as.integer(response)
+                if (response < 1L || response > ncol(prediction_df)) {
+                    stop(
+                        "`response` must be between 1 and ", ncol(prediction_df), "."
+                    )
+                }
+                prediction <- prediction_df[[response]]
+            } else {
+                stop("`response` must be NULL, a single column name, or a single column index.")
+            }
+        }
+    }
+
+    if (length(prediction) != n) {
+        stop(
+            "Prediction output must have length ", n,
+            ", but got length ", length(prediction), "."
+        )
+    }
+
+    if (is.logical(prediction)) {
+        return(as.numeric(prediction))
+    }
+
+    if (is.factor(prediction)) {
+        return(as.numeric(prediction))
+    }
+
+    if (!is.numeric(prediction)) {
+        stop(
+            "Prediction output must be numeric, logical, factor, matrix, or data frame."
+        )
+    }
+
+    as.numeric(prediction)
+}

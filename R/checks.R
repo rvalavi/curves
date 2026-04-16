@@ -12,4 +12,4 @@
 }
 
 
-utils::globalVariables(c("std", "var", "x", "y"))
+utils::globalVariables(c("std", "var", "x", "y", "z"))
