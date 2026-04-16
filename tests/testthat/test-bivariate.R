@@ -35,6 +35,30 @@ test_that("bivariate lets predict type flow through dots", {
 })
 
 
+test_that("bivariate handles binary probability output", {
+    model <- lm(
+        Sepal.Length ~ Sepal.Width + Petal.Length + Petal.Width,
+        data = iris
+    )
+
+    plot <- bivariate(
+        model,
+        x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
+        pairs = c("Sepal.Width", "Petal.Length"),
+        fun = function(model, newdata) {
+            prob <- stats::plogis(
+                0.4 * newdata$Sepal.Width -
+                    0.3 * newdata$Petal.Length +
+                    0.2 * newdata$Petal.Width
+            )
+            cbind(absent = 1 - prob, present = prob)
+        }
+    )
+
+    expect_s3_class(plot, "ggplot")
+})
+
+
 test_that("bivariate handles mixed numeric and factor predictors", {
     model <- lm(Sepal.Length ~ Species + Petal.Width, data = iris)
 

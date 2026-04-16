@@ -1,0 +1,136 @@
+---
+title: "Species Distribution Example with Random Forest"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Species Distribution Example with Random Forest}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 10.5,
+  fig.height = 6.5,
+  out.width = "100%",
+  fig.align = "center"
+)
+
+species_example <- requireNamespace("disdat", quietly = TRUE) &&
+  requireNamespace("randomForest", quietly = TRUE)
+```
+
+This vignette shows a compact species distribution workflow using
+[`disdat`](https://cran.r-project.org/package=disdat) data, a down-sampled
+random forest classifier, and `curves` response plots.
+
+The example uses one species from New South Wales (`"nsw14"`), combines its
+presence records with 10,000 random background points, and then down-samples
+the background class during model fitting so each tree sees a balanced sample.
+
+The code below is shown in full, and is only evaluated when the optional
+packages `disdat` and `randomForest` are installed.
+
+## Prepare the training data
+
+```{r, eval = species_example, message = FALSE, warning = FALSE}
+spID <- "nsw14"
+pr <- disdat::disPo("NSW")
+bg <- disdat::disBg("NSW")
+
+pr <- pr[pr$spid == spID, ]
+training <- rbind(pr, bg)
+
+covars <- c(
+  "cti", "disturb", "mi", "rainann", "raindq",
+  "rugged", "soildepth", "soilfert", "solrad",
+  "tempann", "topo", "vegsys"
+)
+
+training <- training[, c("occ", covars)]
+training$vegsys <- as.factor(training$vegsys)
+
+for (v in covars[covars != "vegsys"]) {
+  meanv <- mean(training[[v]])
+  sdv <- stats::sd(training[[v]])
+  training[[v]] <- (training[[v]] - meanv) / sdv
+}
+
+head(training[, 1:5])
+```
+
+## Fit a down-sampled random forest
+
+`randomForest::randomForest()` can balance each bootstrap sample with
+`sampsize`. Here the number of background samples drawn for each tree is set to
+the number of presences, which is a common way to reduce class imbalance.
+
+```{r, eval = species_example, message = FALSE, warning = FALSE}
+training$occ <- as.factor(training$occ)
+pr_num <- as.integer(table(training$occ)[["1"]])
+smpsize <- c("0" = pr_num, "1" = pr_num)
+
+set.seed(32639)
+rf_model <- randomForest::randomForest(
+  occ ~ .,
+  data = training,
+  ntree = 1000,
+  sampsize = smpsize,
+  replace = TRUE
+)
+
+plot(rf_model)
+```
+
+## Plot univariate and bivariate response curves
+
+For binary classification models, `predict(..., type = "prob")` returns one
+column per class. In this example the presence class is `"1"`, so the response
+plots use `response = "1"` to make that choice explicit.
+
+```{r, eval = species_example, message = FALSE, warning = FALSE}
+dat <- training[, covars]
+
+curves::univariate(
+  rf_model,
+  dat,
+  type = "prob",
+  response = "1",
+  ylab = "Presence probability",
+  ylim = c(0, 1)
+)
+```
+
+The next example follows the original workflow closely by plotting the third and
+fourth predictors in `covars`, which correspond to `mi` and `rainann`.
+
+```{r, eval = species_example, message = FALSE, warning = FALSE}
+curves::bivariate(
+  rf_model,
+  dat,
+  pairs = c(3, 4),
+  plot_type = "heatmap",
+  type = "prob",
+  response = "1",
+  zlab = "Presence probability"
+)
+```
+
+For a 3D surface, a small wrapper around `predict()` is still convenient when
+you want direct control over the returned probability vector.
+
+```{r, eval = species_example && requireNamespace("plotly", quietly = TRUE), message = FALSE, warning = FALSE}
+rf_prob <- function(model, newdata) {
+  predict(model, newdata, type = "prob")[, "1"]
+}
+
+curves::bivariate(
+  rf_model,
+  dat,
+  pairs = c(3, 4),
+  plot_type = "surface",
+  fun = rf_prob,
+  zlab = "Presence probability"
+)
+```

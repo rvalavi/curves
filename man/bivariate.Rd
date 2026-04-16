@@ -16,6 +16,7 @@ bivariate(
   zlab = "Prediction",
   bins = 8,
   palette = grDevices::hcl.colors(12, "YlOrRd", rev = TRUE),
+  response = NULL,
   nrows = NULL,
   ncols = NULL
 )
@@ -54,6 +55,10 @@ single numeric predictor pair.}
 \code{"contour"} plots.}
 
 \item{palette}{Character vector of colours used for the response scale.}
+
+\item{response}{Optional column name or index to select when \code{fun} returns
+multiple predictions per row. If \code{NULL} and exactly two prediction columns
+are returned, the second column is used.}
 
 \item{nrows}{Integer, number of rows in the plot grid. If \code{NULL}, it is
 automatically determined.}

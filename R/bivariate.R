@@ -26,6 +26,9 @@
 #' @param bins Integer, number of contour bins for `"heatmap"` overlays and
 #'   `"contour"` plots.
 #' @param palette Character vector of colours used for the response scale.
+#' @param response Optional column name or index to select when `fun` returns
+#'   multiple predictions per row. If `NULL` and exactly two prediction columns
+#'   are returned, the second column is used.
 #' @param nrows Integer, number of rows in the plot grid. If `NULL`, it is
 #'   automatically determined.
 #' @param ncols Integer, number of columns in the plot grid. If `NULL`, it is
@@ -66,6 +69,7 @@ bivariate <- function(model, x = NULL, predict_data = NULL, pairs = NULL,
                           "YlOrRd",
                           rev = TRUE
                       ),
+                      response = NULL,
                       nrows = NULL, ncols = NULL) {
 
     plot_type <- match.arg(plot_type)
@@ -108,7 +112,11 @@ bivariate <- function(model, x = NULL, predict_data = NULL, pairs = NULL,
         data.frame(
             x = grid[[spec$x_name]],
             y = grid[[spec$y_name]],
-            z = as.numeric(fun(model, grid, ...))
+            z = extract_prediction_vector(
+                fun(model, grid, ...),
+                n = nrow(grid),
+                response = response
+            )
         )
     })
 
