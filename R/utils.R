@@ -80,6 +80,15 @@ reference_value <- function(x) {
 }
 
 
+validate_curve_n <- function(n) {
+    if (!is.numeric(n) || length(n) != 1L || is.na(n) || n < 1) {
+        stop("n must be a single positive integer")
+    }
+
+    as.integer(n)
+}
+
+
 curve_values <- function(x, n) {
     x <- stats::na.omit(x)
     if (!length(x)) {
@@ -126,6 +135,46 @@ build_curve_grid <- function(reference_row, column, values) {
     }
 
     grid
+}
+
+
+build_curve_stack <- function(background_rows, column, values) {
+    grid <- background_rows[
+        rep(seq_len(nrow(background_rows)), each = length(values)),
+        ,
+        drop = FALSE
+    ]
+
+    if (is.factor(background_rows[[column]])) {
+        grid[[column]] <- factor(
+            rep(as.character(values), times = nrow(background_rows)),
+            levels = levels(background_rows[[column]]),
+            ordered = is.ordered(background_rows[[column]])
+        )
+    } else {
+        grid[[column]] <- rep(values, times = nrow(background_rows))
+    }
+
+    grid
+}
+
+
+sample_background_rows <- function(x_df, n) {
+    keep <- stats::complete.cases(x_df)
+    x_df <- x_df[keep, , drop = FALSE]
+
+    if (!nrow(x_df)) {
+        stop(
+            "predict_data must contain at least one complete row for PDP or ICE methods"
+        )
+    }
+
+    if (nrow(x_df) <= n) {
+        return(x_df)
+    }
+
+    index <- unique(round(seq(1, nrow(x_df), length.out = n)))
+    x_df[index, , drop = FALSE]
 }
 
 

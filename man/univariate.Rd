@@ -14,10 +14,11 @@ univariate(
   ylab = "Prediction",
   rug = TRUE,
   ylim = NULL,
-  color = "deepskyblue2",
+  color = "deepskyblue4",
   response = NULL,
   nrows = NULL,
-  ncols = NULL
+  ncols = NULL,
+  method = c("profile", "pdp", "ice", "ice+pdp")
 )
 }
 \arguments{
@@ -35,7 +36,8 @@ to \code{predict}.}
 \item{...}{Additional arguments passed to \code{fun}.}
 
 \item{n}{Integer, number of points to sample for each numeric predictor
-variable (default: 100).}
+variable (default: 100). For \code{"pdp"}, \code{"ice"}, and \code{"ice+pdp"}, \code{n} also
+controls how many predictor rows are sampled from \code{predict_data}.}
 
 \item{ylab}{Character, label for the y-axis (default: \code{"Prediction"}).}
 
@@ -46,7 +48,7 @@ variable (default: 100).}
 If \code{NULL}, limits are automatically set.}
 
 \item{color}{Character, colour of the response curve (default:
-\code{"deepskyblue2"}).}
+\code{"deepskyblue4"}).}
 
 \item{response}{Optional column name or index to select when \code{fun} returns
 multiple predictions per row. If \code{NULL} and exactly two prediction columns
@@ -57,6 +59,11 @@ automatically determined.}
 
 \item{ncols}{Integer, number of columns in the plot grid. If \code{NULL}, it is
 automatically determined.}
+
+\item{method}{Character, the curve type to plot. \code{"profile"} uses a single
+reference profile, \code{"pdp"} averages over sampled predictor rows,
+\code{"ice"} draws individual conditional expectation curves, and \code{"ice+pdp"}
+overlays the averaged PDP on top of the ICE curves.}
 }
 \value{
 A \code{ggplot2} object containing the response curves arranged in a grid.
@@ -73,4 +80,12 @@ response_plot <- univariate(
   x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")]
 )
 print(response_plot)
+
+ice_plot <- univariate(
+  model,
+  x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
+  method = "ice+pdp",
+  n = 25
+)
+print(ice_plot)
 }

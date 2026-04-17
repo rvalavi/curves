@@ -25,6 +25,29 @@ test_that("univariate handles factor predictors", {
 })
 
 
+test_that("univariate supports pdp and ice-based methods", {
+    model <- lm(
+        Sepal.Length ~ Sepal.Width + Petal.Length + Petal.Width,
+        data = iris
+    )
+
+    predictors <- iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")]
+
+    expect_s3_class(
+        univariate(model, x = predictors, method = "pdp", n = 20),
+        "ggplot"
+    )
+    expect_s3_class(
+        univariate(model, x = predictors, method = "ice", n = 20),
+        "ggplot"
+    )
+    expect_s3_class(
+        univariate(model, x = predictors, method = "ice+pdp", n = 20),
+        "ggplot"
+    )
+})
+
+
 test_that("univariate supports SpatRaster inputs", {
     skip_if_not_installed("terra")
 
@@ -51,6 +74,33 @@ test_that("univariate supports SpatRaster inputs", {
     plot <- univariate(model, x = r)
 
     expect_s3_class(plot, "ggplot")
+})
+
+
+test_that("ice helpers use sampled predictor rows and average correctly", {
+    x_df <- data.frame(
+        x1 = c(1, 2, 3, 4, 5),
+        x2 = c(10, 20, 30, 40, NA)
+    )
+
+    sampled <- curves:::sample_background_rows(x_df, n = 3)
+    expect_equal(nrow(sampled), 3)
+    expect_false(anyNA(sampled))
+
+    curves_df <- curves:::build_ice_curve_table(
+        model = NULL,
+        background_rows = sampled,
+        column = "x1",
+        values = c(0, 5),
+        fun = function(model, newdata) newdata$x1 + newdata$x2,
+        response = NULL
+    )
+
+    expect_equal(nrow(curves_df), 6)
+    expect_equal(length(unique(curves_df$curve)), 3)
+
+    summary_df <- curves:::average_curve_table(curves_df)
+    expect_equal(summary_df$y, c(0, 5) + mean(sampled$x2))
 })
 
 

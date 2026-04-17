@@ -43,8 +43,8 @@ pr <- pr[pr$spid == spID, ]
 training <- rbind(pr, bg)
 
 covars <- c(
-  "cti", "disturb", "mi", "rainann", "raindq",
-  "rugged", "soildepth", "soilfert", "solrad",
+  "disturb", "mi", "rainann", "raindq",
+  "rugged", "soildepth",
   "tempann", "topo", "vegsys"
 )
 
@@ -67,11 +67,12 @@ head(training[, 1:5])
 the number of presences, which is a common way to reduce class imbalance.
 
 ```{r, eval = species_example, message = FALSE, warning = FALSE}
-training$occ <- as.factor(training$occ)
-pr_num <- as.integer(table(training$occ)[["1"]])
+# get the number of presences (before converting to factors);
+pr_num <- sum(training$occ)
 smpsize <- c("0" = pr_num, "1" = pr_num)
 
-set.seed(32639)
+training$occ <- as.factor(training$occ)
+
 rf_model <- randomForest::randomForest(
   occ ~ .,
   data = training,
@@ -79,8 +80,6 @@ rf_model <- randomForest::randomForest(
   sampsize = smpsize,
   replace = TRUE
 )
-
-plot(rf_model)
 ```
 
 ## Plot univariate and bivariate response curves
@@ -89,26 +88,57 @@ For binary classification models, `predict(..., type = "prob")` returns one
 column per class. In this example the presence class is `"1"`, so the response
 plots use `response = "1"` to make that choice explicit.
 
-```{r, eval = species_example, message = FALSE, warning = FALSE}
+```{r, eval = species_example, fig.height = 8, message = FALSE, warning = FALSE}
 dat <- training[, covars]
 
 curves::univariate(
   rf_model,
   dat,
+  method = "profile",
   type = "prob",
   response = "1",
   ylab = "Relative likelihood"
 )
 ```
 
-The next example follows the original workflow closely by plotting the third and
-fourth predictors in `covars`, which correspond to `mi` and `rainann`.
+The same interface can now be used for partial dependence and ICE plots.
+`method = "pdp"` averages over sampled predictor combinations from `dat`,
+whereas `method = "ice+pdp"` overlays that average on top of the sampled ICE
+curves. Here `n = 30` controls both the grid resolution for numeric predictors
+and the number of sampled rows used for PDP/ICE.
 
-```{r, eval = species_example, message = FALSE, warning = FALSE}
+```{r, eval = species_example, fig.height=8, message = FALSE, warning = FALSE}
+curves::univariate(
+  rf_model,
+  dat,
+  method = "pdp",
+  n = 100,
+  type = "prob",
+  response = "1",
+  ylab = "Relative likelihood"
+)
+```
+
+```{r, eval = species_example, fig.height = 8, message = FALSE, warning = FALSE}
+curves::univariate(
+  rf_model,
+  dat,
+  method = "ice+pdp",
+  n = 100,
+  type = "prob",
+  response = "1",
+  ylab = "Relative likelihood"
+)
+```
+
+The next example follows the original workflow closely by plotting the second
+and third predictors in `covars`, which correspond to `mi` and `rainann`.
+
+```{r, eval = species_example, fig.width=5.6, fig.height=4, message = FALSE, warning = FALSE}
 curves::bivariate(
   rf_model,
   dat,
-  pairs = c(3, 4),
+  pairs = c(2, 3),
   plot_type = "heatmap",
   type = "prob",
   response = "1",
@@ -127,7 +157,7 @@ rf_prob <- function(model, newdata) {
 curves::bivariate(
   rf_model,
   dat,
-  pairs = c(3, 4),
+  pairs = c(2, 3),
   plot_type = "surface",
   fun = rf_prob,
   zlab = "Relative likelihood"
