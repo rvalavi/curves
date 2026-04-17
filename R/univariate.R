@@ -40,12 +40,17 @@
 #'   x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")]
 #' )
 #' print(response_plot)
-univariate <- function(model, x = NULL, predict_data = NULL,
-                       fun = stats::predict, ..., n = 100, ylab = "Prediction",
-                       rug = TRUE, ylim = NULL,
-                       color = "deepskyblue2",
+univariate <- function(model, x = NULL,
+                       predict_data = NULL,
+                       fun = stats::predict, ...,
+                       n = 100,
+                       ylab = "Prediction",
+                       rug = TRUE,
+                       ylim = NULL,
+                       color = "deepskyblue4",
                        response = NULL,
-                       nrows = NULL, ncols = NULL) {
+                       nrows = NULL,
+                       ncols = NULL) {
 
     if (is.null(predict_data)) {
         if (is.null(x)) {

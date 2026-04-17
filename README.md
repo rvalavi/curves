@@ -9,7 +9,6 @@ models, using ggplot2 for visualization. While packages like `pdp` and `vip` als
 similar functionality, curves provides a few additional features that may be useful 
 in certain cases:
 * Supports raster-based predictions, making it suitable for spatial models.
-* Highlights areas of extrapolation in the response curves.
 * Offers interactive visualizations for better exploration of model outputs.
 
 With a simple syntax that fits into typical R workflows, curves makes it easier to 
