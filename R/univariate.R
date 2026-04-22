@@ -13,7 +13,9 @@
 #' @param ... Additional arguments passed to `fun`.
 #' @param n Integer, number of points to sample for each numeric predictor
 #'   variable (default: 100). For `"pdp"`, `"ice"`, and `"ice+pdp"`, `n` also
-#'   controls how many predictor rows are sampled from `predict_data`.
+#'   controls how many predictor rows are sampled from `predict_data`. For
+#'   `"ale"`, `n` sets the maximum number of intervals used to estimate local
+#'   effects for numeric predictors.
 #' @param ylab Character, label for the y-axis (default: `"Prediction"`).
 #' @param nrows Integer, number of rows in the plot grid. If `NULL`, it is
 #'   automatically determined.
@@ -31,7 +33,9 @@
 #' @param method Character, the curve type to plot. `"profile"` uses a single
 #'   reference profile, `"pdp"` averages over sampled predictor rows,
 #'   `"ice"` draws individual conditional expectation curves, and `"ice+pdp"`
-#'   overlays the averaged PDP on top of the ICE curves.
+#'   overlays the averaged PDP on top of the ICE curves. `"ale"` draws
+#'   accumulated local effects curves for numeric predictors and ignores factor
+#'   predictors with a warning.
 #'
 #' @return A `ggplot2` object containing the response curves arranged in a grid.
 #'
@@ -53,6 +57,14 @@
 #'   n = 25
 #' )
 #' print(ice_plot)
+#'
+#' ale_plot <- univariate(
+#'   model,
+#'   x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
+#'   method = "ale",
+#'   n = 20
+#' )
+#' print(ale_plot)
 univariate <- function(model, x = NULL,
                        predict_data = NULL,
                        fun = stats::predict, ...,
@@ -64,7 +76,7 @@ univariate <- function(model, x = NULL,
                        response = NULL,
                        nrows = NULL,
                        ncols = NULL,
-                       method = c("profile", "pdp", "ice", "ice+pdp")) {
+                       method = c("profile", "pdp", "ice", "ice+pdp", "ale")) {
 
     method <- match.arg(method)
     n <- validate_curve_n(n)
@@ -86,26 +98,51 @@ univariate <- function(model, x = NULL,
 
     x_df <- validate_predictors(x_source, sample_size = sample_size)
     nms <- names(x_df)
-    nvars <- ncol(x_df)
+    predictor_names <- nms
 
-    ncols <- if (is.null(ncols)) ceiling(sqrt(nvars)) else ncols
-    nrows <- if (is.null(nrows)) ceiling(nvars / ncols) else nrows
+    if (method == "ale") {
+        factor_predictors <- names(x_df)[vapply(x_df, is.factor, logical(1))]
 
-    reference_row <- if (method == "profile") build_reference_row(x_df) else NULL
-    background_rows <- if (method == "profile") {
-        NULL
-    } else {
-        sample_background_rows(x_df, n = n)
+        if (length(factor_predictors)) {
+            warning(
+                "ALE currently supports numeric predictors only. Ignoring factor predictors: ",
+                paste(factor_predictors, collapse = ", "),
+                call. = FALSE
+            )
+        }
+
+        predictor_names <- names(x_df)[vapply(x_df, is.numeric, logical(1))]
+
+        if (!length(predictor_names)) {
+            stop("ALE requires at least one numeric predictor to plot")
+        }
     }
 
-    predictor_specs <- lapply(nms, function(name) {
+    reference_row <- if (method == "profile") build_reference_row(x_df) else NULL
+    background_rows <- if (method %in% c("pdp", "ice", "ice+pdp")) {
+        sample_background_rows(x_df, n = n)
+    } else {
+        NULL
+    }
+    ale_rows <- if (method == "ale") {
+        complete_predictor_rows(x_df, context = "ALE methods")
+    } else {
+        NULL
+    }
+
+    predictor_specs <- lapply(predictor_names, function(name) {
         list(
             name = name,
             is_factor = is.factor(x_df[[name]]),
+            is_ordered = is.ordered(x_df[[name]]),
             values = curve_values(x_df[[name]], n = n)
         )
     })
-    names(predictor_specs) <- nms
+    names(predictor_specs) <- predictor_names
+    nvars <- length(predictor_specs)
+
+    ncols <- if (is.null(ncols)) ceiling(sqrt(nvars)) else ncols
+    nrows <- if (is.null(nrows)) ceiling(nvars / ncols) else nrows
 
     tables <- lapply(predictor_specs, function(spec) {
         if (method == "profile") {
@@ -114,6 +151,20 @@ univariate <- function(model, x = NULL,
                 reference_row = reference_row,
                 column = spec$name,
                 values = spec$values,
+                fun = fun,
+                response = response,
+                ...
+            )
+
+            return(list(curves = curve_df, summary = NULL))
+        }
+
+        if (method == "ale") {
+            curve_df <- build_ale_curve_table(
+                model = model,
+                ale_rows = ale_rows,
+                column = spec$name,
+                n = n,
                 fun = fun,
                 response = response,
                 ...
@@ -170,6 +221,7 @@ univariate <- function(model, x = NULL,
                 NULL
             },
             fact = spec$is_factor,
+            ordered_factor = spec$is_ordered,
             rug = rug && !spec$is_factor,
             se = FALSE,
             x_name = spec$name,
@@ -219,6 +271,89 @@ build_ice_curve_table <- function(model, background_rows, column, values, fun,
 }
 
 
+build_ale_curve_table <- function(model, ale_rows, column, n, fun,
+                                  response, ...) {
+    x <- ale_rows[[column]]
+
+    if (!is.numeric(x)) {
+        stop(
+            "ALE currently supports numeric predictors only. Unsupported column: ",
+            column
+        )
+    }
+
+    breaks <- ale_breaks(x, n = n)
+
+    if (length(breaks) < 2L) {
+        return(data.frame(x = breaks[1], y = 0))
+    }
+
+    interval <- findInterval(
+        x,
+        vec = breaks,
+        rightmost.closed = TRUE,
+        all.inside = TRUE
+    )
+    n_intervals <- length(breaks) - 1L
+    lower_grid <- ale_rows
+    upper_grid <- ale_rows
+
+    lower_grid[[column]] <- breaks[interval]
+    upper_grid[[column]] <- breaks[interval + 1L]
+
+    diffs <- extract_prediction_vector(
+        fun(model, upper_grid, ...),
+        n = nrow(upper_grid),
+        response = response
+    ) - extract_prediction_vector(
+        fun(model, lower_grid, ...),
+        n = nrow(lower_grid),
+        response = response
+    )
+
+    counts <- tabulate(interval, nbins = n_intervals)
+    keep <- counts > 0L
+    lower_breaks <- breaks[-length(breaks)][keep]
+    upper_breaks <- breaks[-1L][keep]
+    counts <- counts[keep]
+    mean_diffs <- vapply(
+        which(keep),
+        function(index) mean(diffs[interval == index]),
+        numeric(1)
+    )
+    ale_values <- cumsum(mean_diffs) - (mean_diffs / 2)
+    ale_values <- ale_values - stats::weighted.mean(ale_values, w = counts)
+
+    data.frame(
+        x = (lower_breaks + upper_breaks) / 2,
+        y = ale_values
+    )
+}
+
+
+ale_breaks <- function(x, n) {
+    x <- sort(stats::na.omit(x))
+
+    if (!length(x)) {
+        stop("Predictors must contain at least one non-missing value")
+    }
+
+    if (!is.numeric(x)) {
+        stop("ALE currently supports numeric predictors only")
+    }
+
+    unique_x <- sort(unique(x))
+
+    if (length(unique_x) == 1L) {
+        return(unique_x)
+    }
+
+    n_intervals <- min(n, length(unique_x) - 1L)
+    break_index <- unique(round(seq(1, length(x), length.out = n_intervals + 1L)))
+    unique(x[break_index])
+}
+
+
 average_curve_table <- function(df) {
     summary <- stats::aggregate(y ~ x, data = df[, c("x", "y"), drop = FALSE],
                                 FUN = mean)
@@ -235,7 +370,8 @@ average_curve_table <- function(df) {
 }
 
 
-plot_1D <- function(df, dat, fact, rug, se, x_name, y_name, ylim, color,
+plot_1D <- function(df, dat, fact, ordered_factor = FALSE, rug, se,
+                    x_name, y_name, ylim, color,
                     ribcol = "grey85", curve_alpha = 1,
                     curve_linewidth = 0.7, summary_df = NULL,
                     summary_linewidth = 1) {
@@ -266,13 +402,17 @@ plot_1D <- function(df, dat, fact, rug, se, x_name, y_name, ylim, color,
 
     if (fact) {
         if (has_curve_groups) {
+            if (ordered_factor) {
+                plt <- plt +
+                    ggplot2::geom_line(
+                        ggplot2::aes(group = curve),
+                        color = color,
+                        alpha = curve_alpha,
+                        linewidth = curve_linewidth
+                    )
+            }
+
             plt <- plt +
-                ggplot2::geom_line(
-                    ggplot2::aes(group = curve),
-                    color = color,
-                    alpha = curve_alpha,
-                    linewidth = curve_linewidth
-                ) +
                 ggplot2::geom_point(
                     ggplot2::aes(group = curve),
                     color = color,
@@ -303,14 +443,18 @@ plot_1D <- function(df, dat, fact, rug, se, x_name, y_name, ylim, color,
 
     if (!is.null(summary_df)) {
         if (fact) {
+            if (ordered_factor) {
+                plt <- plt +
+                    ggplot2::geom_line(
+                        data = summary_df,
+                        ggplot2::aes(x = x, y = y, group = 1),
+                        color = color,
+                        linewidth = summary_linewidth,
+                        inherit.aes = FALSE
+                    )
+            }
+
             plt <- plt +
-                ggplot2::geom_line(
-                    data = summary_df,
-                    ggplot2::aes(x = x, y = y, group = 1),
-                    color = color,
-                    linewidth = summary_linewidth,
-                    inherit.aes = FALSE
-                ) +
                 ggplot2::geom_point(
                     data = summary_df,
                     ggplot2::aes(x = x, y = y),

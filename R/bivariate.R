@@ -23,9 +23,9 @@
 #'   single numeric predictor pair.
 #' @param zlab Character, label for the response legend or z-axis (default:
 #'   `"Prediction"`).
-#' @param bins Integer, number of contour bins for `"heatmap"` overlays and
-#'   `"contour"` plots.
-#' @param palette Character vector of colours used for the response scale.
+#' @param bins Integer, number of contour bins for `"contour"` plots.
+#' @param palette Either a viridis option name (default: `"viridis"`) or a
+#'   character vector of colours used for the response scale.
 #' @param response Optional column name or index to select when `fun` returns
 #'   multiple predictions per row. If `NULL` and exactly two prediction columns
 #'   are returned, the second column is used.
@@ -64,11 +64,7 @@ bivariate <- function(model, x = NULL, predict_data = NULL, pairs = NULL,
                       fun = stats::predict, ..., n = 40,
                       plot_type = c("heatmap", "contour", "surface"),
                       zlab = "Prediction", bins = 8,
-                      palette = grDevices::hcl.colors(
-                          12,
-                          "YlOrRd",
-                          rev = TRUE
-                      ),
+                      palette = "viridis",
                       response = NULL,
                       nrows = NULL, ncols = NULL) {
 
@@ -332,27 +328,27 @@ plot_2D <- function(df, x_name, y_name, x_factor, y_factor, plot_type, z_name,
                 breaks = contour_breaks,
                 color = "grey30",
                 linewidth = 0.25
+            ) +
+            response_fill_scale(
+                palette = palette,
+                z_limits = z_limits,
+                discrete = TRUE
             )
     } else if (!x_factor && !y_factor) {
         plt <- plt +
             ggplot2::geom_raster(ggplot2::aes(fill = z)) +
-            ggplot2::geom_contour(
-                ggplot2::aes(z = z),
-                breaks = contour_breaks,
-                color = "white",
-                alpha = 0.7,
-                linewidth = 0.25
-            ) +
-            ggplot2::scale_fill_gradientn(
-                colours = palette,
-                limits = z_limits
+            response_fill_scale(
+                palette = palette,
+                z_limits = z_limits,
+                discrete = FALSE
             )
     } else {
         plt <- plt +
             ggplot2::geom_tile(ggplot2::aes(fill = z), color = "white") +
-            ggplot2::scale_fill_gradientn(
-                colours = palette,
-                limits = z_limits
+            response_fill_scale(
+                palette = palette,
+                z_limits = z_limits,
+                discrete = FALSE
             )
     }
 
@@ -374,6 +370,40 @@ plot_2D <- function(df, x_name, y_name, x_factor, y_factor, plot_type, z_name,
     }
 
     plt
+}
+
+
+response_fill_scale <- function(palette, z_limits, discrete) {
+    if (is_viridis_palette(palette)) {
+        if (discrete) {
+            return(ggplot2::scale_fill_viridis_d(option = palette))
+        }
+
+        return(ggplot2::scale_fill_viridis_c(
+            option = palette,
+            limits = z_limits
+        ))
+    }
+
+    if (discrete) {
+        return(ggplot2::scale_fill_manual(values = palette))
+    }
+
+    ggplot2::scale_fill_gradientn(
+        colours = palette,
+        limits = z_limits
+    )
+}
+
+
+is_viridis_palette <- function(palette) {
+    is.character(palette) &&
+        length(palette) == 1L &&
+        palette %in% c(
+            "A", "B", "C", "D", "E", "F", "G", "H",
+            "magma", "inferno", "plasma", "viridis",
+            "cividis", "rocket", "mako", "turbo"
+        )
 }
 
 

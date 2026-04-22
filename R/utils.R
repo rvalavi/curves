@@ -160,14 +160,10 @@ build_curve_stack <- function(background_rows, column, values) {
 
 
 sample_background_rows <- function(x_df, n) {
-    keep <- stats::complete.cases(x_df)
-    x_df <- x_df[keep, , drop = FALSE]
-
-    if (!nrow(x_df)) {
-        stop(
-            "predict_data must contain at least one complete row for PDP or ICE methods"
-        )
-    }
+    x_df <- complete_predictor_rows(
+        x_df,
+        context = "PDP or ICE methods"
+    )
 
     if (nrow(x_df) <= n) {
         return(x_df)
@@ -175,6 +171,21 @@ sample_background_rows <- function(x_df, n) {
 
     index <- unique(round(seq(1, nrow(x_df), length.out = n)))
     x_df[index, , drop = FALSE]
+}
+
+
+complete_predictor_rows <- function(x_df, context) {
+    keep <- stats::complete.cases(x_df)
+    x_df <- x_df[keep, , drop = FALSE]
+
+    if (!nrow(x_df)) {
+        stop(
+            "predict_data must contain at least one complete row for ",
+            context
+        )
+    }
+
+    x_df
 }
 
 

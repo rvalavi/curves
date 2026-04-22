@@ -19,7 +19,7 @@ forest species distribution vignette.
 The current API is centred around three exported functions:
 
 - `univariate()` for one-predictor response curves with
-  `method = "profile"`, `"pdp"`, `"ice"`, or `"ice+pdp"`.
+  `method = "profile"`, `"pdp"`, `"ice"`, `"ice+pdp"`, or `"ale"`.
 - `bivariate()` for two-predictor response surfaces as static heatmaps,
   filled contours, or interactive 3D `plotly` surfaces.
 - `multimodel()` for averaged univariate curves across multiple fitted
@@ -29,7 +29,9 @@ A few practical details are worth calling out:
 
 - Predictor inputs can be ordinary data frames or `terra::SpatRaster`
   objects.
-- Numeric and factor predictors are supported.
+- Numeric and factor predictors are supported. For `method = "ale"`, factor
+  predictors are currently ignored with a warning and only numeric predictors
+  are plotted.
 - If `predict()` returns multiple columns, `response` can be used to choose
   the column to plot.
 - Static plots return `ggplot2` objects, so they can be styled or combined in
@@ -68,6 +70,9 @@ univariate(model, predictors)
 # Partial dependence curves
 univariate(model, predictors, method = "pdp", n = 50)
 
+# Accumulated local effects curves
+univariate(model, predictors, method = "ale", n = 40)
+
 # Bivariate response surface
 bivariate(
   model,
@@ -89,7 +94,7 @@ The package includes a fuller
 built around a down-sampled random forest classifier. It demonstrates:
 
 - class-probability plots with `response = "1"`
-- profile, PDP, and ICE workflows through `univariate()`
+- profile, PDP, ICE, and ALE workflows through `univariate()`
 - a bivariate heatmap and optional 3D surface
 
 You can open it after installation with:

@@ -101,11 +101,11 @@ curves::univariate(
 )
 ```
 
-The same interface can now be used for partial dependence and ICE plots.
-`method = "pdp"` averages over sampled predictor combinations from `dat`,
-whereas `method = "ice+pdp"` overlays that average on top of the sampled ICE
-curves. Here `n = 30` controls both the grid resolution for numeric predictors
-and the number of sampled rows used for PDP/ICE.
+The same interface can now be used for partial dependence, ICE, and ALE
+plots. `method = "pdp"` averages over sampled predictor combinations from
+`dat`, whereas `method = "ice+pdp"` overlays that average on top of the
+sampled ICE curves. Here `n = 30` controls both the grid resolution for
+numeric predictors and the number of sampled rows used for PDP/ICE.
 
 ```{r, eval = species_example, fig.height=8, message = FALSE, warning = FALSE}
 curves::univariate(
@@ -125,6 +125,23 @@ curves::univariate(
   dat,
   method = "ice+pdp",
   n = 100,
+  type = "prob",
+  response = "1",
+  ylab = "Relative likelihood"
+)
+```
+
+ALE curves accumulate local finite differences within the observed predictor
+distribution, which often makes them less sensitive than PDPs to strongly
+correlated predictors. In `curves`, ALE is currently plotted for numeric
+predictors; factor predictors are ignored with a warning.
+
+```{r, eval = species_example, fig.height = 8, message = FALSE, warning = FALSE}
+curves::univariate(
+  rf_model,
+  dat,
+  method = "ale",
+  n = 40,
   type = "prob",
   response = "1",
   ylab = "Relative likelihood"

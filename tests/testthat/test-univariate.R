@@ -45,6 +45,26 @@ test_that("univariate supports pdp and ice-based methods", {
         univariate(model, x = predictors, method = "ice+pdp", n = 20),
         "ggplot"
     )
+    expect_s3_class(
+        univariate(model, x = predictors, method = "ale", n = 20),
+        "ggplot"
+    )
+})
+
+
+test_that("univariate ale warns and skips factor predictors", {
+    model <- lm(Sepal.Length ~ Species + Petal.Width, data = iris)
+
+    expect_warning(
+        plot <- univariate(
+            model,
+            x = iris[, c("Species", "Petal.Width")],
+            method = "ale"
+        ),
+        "Ignoring factor predictors: Species"
+    )
+
+    expect_s3_class(plot, "ggplot")
 })
 
 
@@ -101,6 +121,96 @@ test_that("ice helpers use sampled predictor rows and average correctly", {
 
     summary_df <- curves:::average_curve_table(curves_df)
     expect_equal(summary_df$y, c(0, 5) + mean(sampled$x2))
+})
+
+
+test_that("ale helper accumulates and centers local effects", {
+    x_df <- data.frame(
+        x1 = c(1, 2, 3, 4, 5),
+        x2 = c(10, 20, 30, 40, 50)
+    )
+
+    ale_df <- curves:::build_ale_curve_table(
+        model = NULL,
+        ale_rows = x_df,
+        column = "x1",
+        n = 2,
+        fun = function(model, newdata) 2 * newdata$x1 + newdata$x2,
+        response = NULL
+    )
+
+    expect_equal(ale_df$x, c(2, 4))
+    expect_equal(ale_df$y, c(-2.4, 1.6))
+})
+
+
+test_that("univariate ale errors when no numeric predictors remain", {
+    model <- lm(Sepal.Length ~ Species, data = iris)
+
+    expect_warning(
+        expect_error(
+            univariate(
+                model,
+                x = iris["Species"],
+                method = "ale"
+            ),
+            "ALE requires at least one numeric predictor"
+        ),
+        "Ignoring factor predictors: Species"
+    )
+})
+
+
+test_that("unordered factor summaries are not drawn with connecting lines", {
+    plot <- curves:::plot_1D(
+        df = data.frame(
+            x = factor(c("a", "b")),
+            y = c(1, 2)
+        ),
+        dat = NULL,
+        fact = TRUE,
+        ordered_factor = FALSE,
+        rug = FALSE,
+        se = FALSE,
+        x_name = "x",
+        y_name = "y",
+        ylim = c(0, 3),
+        color = "black",
+        summary_df = data.frame(
+            x = factor(c("a", "b")),
+            y = c(1, 2)
+        )
+    )
+
+    geom_classes <- vapply(plot$layers, function(layer) class(layer$geom)[1], character(1))
+    expect_false("GeomLine" %in% geom_classes)
+})
+
+
+test_that("ordered factor summaries still use connecting lines", {
+    ordered_x <- ordered(c("low", "high"), levels = c("low", "high"))
+    plot <- curves:::plot_1D(
+        df = data.frame(
+            x = ordered_x,
+            y = c(1, 2)
+        ),
+        dat = NULL,
+        fact = TRUE,
+        ordered_factor = TRUE,
+        rug = FALSE,
+        se = FALSE,
+        x_name = "x",
+        y_name = "y",
+        ylim = c(0, 3),
+        color = "black",
+        summary_df = data.frame(
+            x = ordered_x,
+            y = c(1, 2)
+        )
+    )
+
+    geom_classes <- vapply(plot$layers, function(layer) class(layer$geom)[1], character(1))
+    expect_true("GeomLine" %in% geom_classes)
 })
 
 

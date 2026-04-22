@@ -25,6 +25,7 @@ Suggests:
   knitr,
   plotly,
   rmarkdown,
+  shiny,
   terra (>= 1.6-41),
   testthat (>= 3.0.0)
 VignetteBuilder: knitr

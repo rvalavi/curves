@@ -15,7 +15,7 @@ bivariate(
   plot_type = c("heatmap", "contour", "surface"),
   zlab = "Prediction",
   bins = 8,
-  palette = grDevices::hcl.colors(12, "YlOrRd", rev = TRUE),
+  palette = "viridis",
   response = NULL,
   nrows = NULL,
   ncols = NULL
@@ -51,10 +51,10 @@ single numeric predictor pair.}
 \item{zlab}{Character, label for the response legend or z-axis (default:
 \code{"Prediction"}).}
 
-\item{bins}{Integer, number of contour bins for \code{"heatmap"} overlays and
-\code{"contour"} plots.}
+\item{bins}{Integer, number of contour bins for \code{"contour"} plots.}
 
-\item{palette}{Character vector of colours used for the response scale.}
+\item{palette}{Either a viridis option name (default: \code{"viridis"}) or a
+character vector of colours used for the response scale.}
 
 \item{response}{Optional column name or index to select when \code{fun} returns
 multiple predictions per row. If \code{NULL} and exactly two prediction columns

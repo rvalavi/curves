@@ -13,6 +13,24 @@ test_that("bivariate creates static plots for numeric predictor pairs", {
 })
 
 
+test_that("bivariate heatmaps use viridis and omit contour overlays", {
+    model <- lm(
+        Sepal.Length ~ Sepal.Width + Petal.Length + Petal.Width,
+        data = iris
+    )
+
+    plot <- bivariate(
+        model,
+        x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
+        pairs = c("Sepal.Width", "Petal.Length")
+    )
+
+    expect_identical(formals(bivariate)$palette, "viridis")
+    expect_length(plot$layers, 1L)
+    expect_s3_class(plot$layers[[1]]$geom, "GeomRaster")
+})
+
+
 test_that("bivariate lets predict type flow through dots", {
     captured_type <- NULL
     predictor_data <- iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")]

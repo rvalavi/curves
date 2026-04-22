@@ -18,7 +18,7 @@ univariate(
   response = NULL,
   nrows = NULL,
   ncols = NULL,
-  method = c("profile", "pdp", "ice", "ice+pdp")
+  method = c("profile", "pdp", "ice", "ice+pdp", "ale")
 )
 }
 \arguments{
@@ -37,7 +37,9 @@ to \code{predict}.}
 
 \item{n}{Integer, number of points to sample for each numeric predictor
 variable (default: 100). For \code{"pdp"}, \code{"ice"}, and \code{"ice+pdp"}, \code{n} also
-controls how many predictor rows are sampled from \code{predict_data}.}
+controls how many predictor rows are sampled from \code{predict_data}. For
+\code{"ale"}, \code{n} sets the maximum number of intervals used to estimate local
+effects for numeric predictors.}
 
 \item{ylab}{Character, label for the y-axis (default: \code{"Prediction"}).}
 
@@ -63,7 +65,9 @@ automatically determined.}
 \item{method}{Character, the curve type to plot. \code{"profile"} uses a single
 reference profile, \code{"pdp"} averages over sampled predictor rows,
 \code{"ice"} draws individual conditional expectation curves, and \code{"ice+pdp"}
-overlays the averaged PDP on top of the ICE curves.}
+overlays the averaged PDP on top of the ICE curves. \code{"ale"} draws
+accumulated local effects curves for numeric predictors and ignores factor
+predictors with a warning.}
 }
 \value{
 A \code{ggplot2} object containing the response curves arranged in a grid.
@@ -88,4 +92,12 @@ ice_plot <- univariate(
   n = 25
 )
 print(ice_plot)
+
+ale_plot <- univariate(
+  model,
+  x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
+  method = "ale",
+  n = 20
+)
+print(ale_plot)
 }
