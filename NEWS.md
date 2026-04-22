@@ -9,9 +9,9 @@
   curves on numeric predictors.
 - Changed `univariate(method = "ale")` to warn and skip factor predictors
   instead of failing when numeric predictors are also available.
-- Reused `n` in `univariate()` as the sampling control for PDP/ICE methods, so
-  it now controls both numeric grid resolution and the number of sampled
-  predictor rows.
+- Split `univariate()` and `interactive_map_curves()` sampling controls so `n`
+  sets numeric grid resolution while `background_n` sets the number of
+  randomly sampled background rows used for PDP/ICE.
 - Added adaptive raster sampling for `univariate()` so PDP/ICE methods can draw
   more background predictor combinations when `predict_data` comes from a
   `SpatRaster`.
@@ -20,6 +20,8 @@
 - Added optional interactive 3D response surfaces for numeric predictor pairs
   when `plotly` is installed.
 - Added support for selecting predictor pairs by column name or column index.
+- Added support for list-valued `fun` in `multimodel()` so mixed model types
+  can use model-specific prediction wrappers before averaging curves.
 
 ## Changes
 

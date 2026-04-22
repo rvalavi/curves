@@ -68,7 +68,7 @@ predictors <- iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")]
 univariate(model, predictors)
 
 # Partial dependence curves
-univariate(model, predictors, method = "pdp", n = 50)
+univariate(model, predictors, method = "pdp", n = 50, background_n = 200)
 
 # Accumulated local effects curves
 univariate(model, predictors, method = "ale", n = 40)
@@ -83,9 +83,11 @@ bivariate(
 ```
 
 For model comparisons, pass a list of fitted models to `multimodel()`. If a
-model needs non-default prediction arguments, pass them through `...`. If it
-returns multiple prediction columns, either set `response` or provide a small
-wrapper through `fun`.
+set of models shares the same prediction interface, pass non-default
+prediction arguments through `...`. For mixed model types, supply `fun` as a
+list of wrappers, one per model, that return the same response scale before
+averaging. If a shared prediction function returns multiple prediction
+columns, either set `response` or provide a small wrapper through `fun`.
 
 ## Species distribution vignette
 

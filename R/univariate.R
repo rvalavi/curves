@@ -12,10 +12,10 @@
 #'   to `predict`.
 #' @param ... Additional arguments passed to `fun`.
 #' @param n Integer, number of points to sample for each numeric predictor
-#'   variable (default: 100). For `"pdp"`, `"ice"`, and `"ice+pdp"`, `n` also
-#'   controls how many predictor rows are sampled from `predict_data`. For
-#'   `"ale"`, `n` sets the maximum number of intervals used to estimate local
-#'   effects for numeric predictors.
+#'   variable (default: 100). For `"ale"`, `n` sets the maximum number of
+#'   intervals used to estimate local effects for numeric predictors.
+#' @param background_n Integer, number of randomly sampled background rows used
+#'   for `"pdp"`, `"ice"`, and `"ice+pdp"` (default: `n`).
 #' @param ylab Character, label for the y-axis (default: `"Prediction"`).
 #' @param nrows Integer, number of rows in the plot grid. If `NULL`, it is
 #'   automatically determined.
@@ -54,7 +54,8 @@
 #'   model,
 #'   x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
 #'   method = "ice+pdp",
-#'   n = 25
+#'   n = 25,
+#'   background_n = 50
 #' )
 #' print(ice_plot)
 #'
@@ -69,6 +70,7 @@ univariate <- function(model, x = NULL,
                        predict_data = NULL,
                        fun = stats::predict, ...,
                        n = 100,
+                       background_n = n,
                        ylab = "Prediction",
                        rug = TRUE,
                        ylim = NULL,
@@ -80,6 +82,7 @@ univariate <- function(model, x = NULL,
 
     method <- match.arg(method)
     n <- validate_curve_n(n)
+    background_n <- validate_background_n(background_n)
 
     if (is.null(predict_data)) {
         if (is.null(x)) {
@@ -90,11 +93,12 @@ univariate <- function(model, x = NULL,
         x_source <- predict_data
     }
 
-    sample_size <- if (.is_rast(x_source)) {
-        max(5000L, n * 50L)
-    } else {
-        5000L
-    }
+    sample_size <- curve_sample_size(
+        x_source,
+        n = n,
+        background_n = background_n,
+        method = method
+    )
 
     x_df <- validate_predictors(x_source, sample_size = sample_size)
     nms <- names(x_df)
@@ -120,7 +124,7 @@ univariate <- function(model, x = NULL,
 
     reference_row <- if (method == "profile") build_reference_row(x_df) else NULL
     background_rows <- if (method %in% c("pdp", "ice", "ice+pdp")) {
-        sample_background_rows(x_df, n = n)
+        sample_background_rows(x_df, background_n = background_n)
     } else {
         NULL
     }

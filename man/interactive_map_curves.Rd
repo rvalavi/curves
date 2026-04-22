@@ -12,6 +12,7 @@ interactive_map_curves(
   fun = stats::predict,
   ...,
   n = 100,
+  background_n = n,
   ylab = "Prediction",
   rug = TRUE,
   ylim = NULL,
@@ -45,10 +46,11 @@ to \code{predict}.}
 \item{...}{Additional arguments passed to \code{fun}.}
 
 \item{n}{Integer, number of points to sample for each numeric predictor
-variable (default: 100). For \code{"pdp"}, \code{"ice"}, and \code{"ice+pdp"}, \code{n} also
-controls how many background rows are sampled from \code{predict_data}. For
-\code{"ale"}, \code{n} sets the maximum number of intervals used to estimate local
-effects for numeric predictors.}
+variable (default: 100). For \code{"ale"}, \code{n} sets the maximum number of
+intervals used to estimate local effects for numeric predictors.}
+
+\item{background_n}{Integer, number of randomly sampled background rows used
+for \code{"pdp"}, \code{"ice"}, and \code{"ice+pdp"} (default: \code{n}).}
 
 \item{ylab}{Character, label for the response scale (default:
 \code{"Prediction"}).}

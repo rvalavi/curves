@@ -104,8 +104,9 @@ curves::univariate(
 The same interface can now be used for partial dependence, ICE, and ALE
 plots. `method = "pdp"` averages over sampled predictor combinations from
 `dat`, whereas `method = "ice+pdp"` overlays that average on top of the
-sampled ICE curves. Here `n = 30` controls both the grid resolution for
-numeric predictors and the number of sampled rows used for PDP/ICE.
+sampled ICE curves. Here `n = 30` controls the grid resolution for numeric
+predictors, while `background_n` controls how many background rows are
+randomly sampled for PDP/ICE.
 
 ```{r, eval = species_example, fig.height=8, message = FALSE, warning = FALSE}
 curves::univariate(
@@ -113,6 +114,7 @@ curves::univariate(
   dat,
   method = "pdp",
   n = 100,
+  background_n = 200,
   type = "prob",
   response = "1",
   ylab = "Relative likelihood"
@@ -125,6 +127,7 @@ curves::univariate(
   dat,
   method = "ice+pdp",
   n = 100,
+  background_n = 200,
   type = "prob",
   response = "1",
   ylab = "Relative likelihood"

@@ -8,9 +8,11 @@
 #'   `predict_data` is provided, this argument is ignored.
 #' @param predict_data A data frame containing values at which predictions
 #'   should be made. If `NULL`, `x` must be provided.
-#' @param fun A function used to generate predictions from the model. Defaults
-#'   to `predict`.
-#' @param ... Additional arguments passed to `fun`.
+#' @param fun A function used to generate predictions from the model, or a list
+#'   of functions the same length as `models`. Defaults to `predict`.
+#' @param ... Additional arguments passed to each prediction function. For
+#'   mixed model types with different prediction interfaces, prefer supplying
+#'   model-specific wrappers through `fun`.
 #' @param n Integer, number of points to sample for each numeric predictor
 #'   variable (default: 100).
 #' @param ylab Character, label for the y-axis (default: `"Prediction"`).
@@ -23,7 +25,7 @@
 #' @param ylim Numeric vector of length 2, specifying the limits of the y-axis.
 #'   If `NULL`, limits are automatically set.
 #' @param color Character, colour of the response curve (default:
-#'   `"deepskyblue2"`).
+#'   `"deepskyblue4"`).
 #' @param se Standard deviation ribbon for the averaged curve.
 #' @param se_color Fill colour of the standard deviation ribbon.
 #' @param response Optional column name or index to select when `fun` returns
@@ -49,7 +51,7 @@ multimodel <- function(models, x = NULL, predict_data = NULL,
                        fun = stats::predict, ..., n = 100, ylab = "Prediction",
                        se = TRUE,
                        rug = TRUE, ylim = NULL,
-                       color = "deepskyblue2",
+                       color = "deepskyblue4",
                        se_color = "grey80",
                        response = NULL,
                        nrows = NULL, ncols = NULL) {
@@ -71,6 +73,7 @@ multimodel <- function(models, x = NULL, predict_data = NULL,
     nms <- names(x_df)
     nvars <- ncol(x_df)
     nmod <- length(models)
+    funs <- normalize_multimodel_funs(fun, n_models = nmod)
 
     ncols <- if (is.null(ncols)) ceiling(sqrt(nvars)) else ncols
     nrows <- if (is.null(nrows)) ceiling(nvars / ncols) else nrows
@@ -88,9 +91,9 @@ multimodel <- function(models, x = NULL, predict_data = NULL,
     tables <- lapply(predictor_specs, function(spec) {
         grid <- build_curve_grid(reference_row, spec$name, spec$values)
         mat <- vapply(
-            models,
-            function(model) extract_prediction_vector(
-                fun(model, grid, ...),
+            seq_len(nmod),
+            function(index) extract_prediction_vector(
+                funs[[index]](models[[index]], grid, ...),
                 n = nrow(grid),
                 response = response
             ),

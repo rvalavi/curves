@@ -34,7 +34,13 @@ test_that("univariate supports pdp and ice-based methods", {
     predictors <- iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")]
 
     expect_s3_class(
-        univariate(model, x = predictors, method = "pdp", n = 20),
+        univariate(
+            model,
+            x = predictors,
+            method = "pdp",
+            n = 20,
+            background_n = 15
+        ),
         "ggplot"
     )
     expect_s3_class(
@@ -103,9 +109,11 @@ test_that("ice helpers use sampled predictor rows and average correctly", {
         x2 = c(10, 20, 30, 40, NA)
     )
 
-    sampled <- curves:::sample_background_rows(x_df, n = 3)
+    set.seed(123)
+    sampled <- curves:::sample_background_rows(x_df, background_n = 3)
     expect_equal(nrow(sampled), 3)
     expect_false(anyNA(sampled))
+    expect_false(identical(rownames(sampled), c("1", "2", "3")))
 
     curves_df <- curves:::build_ice_curve_table(
         model = NULL,
@@ -121,6 +129,35 @@ test_that("ice helpers use sampled predictor rows and average correctly", {
 
     summary_df <- curves:::average_curve_table(curves_df)
     expect_equal(summary_df$y, c(0, 5) + mean(sampled$x2))
+})
+
+
+test_that("interactive curve helpers separate grid and background counts", {
+    x_df <- data.frame(
+        x1 = 1:10,
+        x2 = seq(10, 100, by = 10)
+    )
+
+    set.seed(456)
+    curve_data <- curves:::prepare_interactive_curve_data(
+        model = NULL,
+        x_source = x_df,
+        fun = function(model, newdata) newdata$x1 + newdata$x2,
+        n = 3,
+        background_n = 4,
+        ylab = "Prediction",
+        rug = FALSE,
+        ylim = NULL,
+        color = "black",
+        response = NULL,
+        nrows = NULL,
+        ncols = 1,
+        method = "ice+pdp"
+    )
+
+    table <- curve_data$tables$x1
+    expect_equal(length(unique(table$curves$x)), 3)
+    expect_equal(length(unique(table$curves$curve)), 4)
 })
 
 

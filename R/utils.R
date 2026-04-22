@@ -80,12 +80,37 @@ reference_value <- function(x) {
 }
 
 
-validate_curve_n <- function(n) {
+validate_positive_count <- function(n, name) {
     if (!is.numeric(n) || length(n) != 1L || is.na(n) || n < 1) {
-        stop("n must be a single positive integer")
+        stop(name, " must be a single positive integer")
     }
 
     as.integer(n)
+}
+
+
+validate_curve_n <- function(n) {
+    validate_positive_count(n, name = "n")
+}
+
+
+validate_background_n <- function(n) {
+    validate_positive_count(n, name = "background_n")
+}
+
+
+curve_sample_size <- function(x_source, n, background_n, method) {
+    target_n <- if (method %in% c("pdp", "ice", "ice+pdp")) {
+        max(n, background_n)
+    } else {
+        n
+    }
+
+    if (.is_rast(x_source)) {
+        return(max(5000L, target_n * 50L))
+    }
+
+    5000L
 }
 
 
@@ -159,17 +184,17 @@ build_curve_stack <- function(background_rows, column, values) {
 }
 
 
-sample_background_rows <- function(x_df, n) {
+sample_background_rows <- function(x_df, background_n) {
     x_df <- complete_predictor_rows(
         x_df,
         context = "PDP or ICE methods"
     )
 
-    if (nrow(x_df) <= n) {
+    if (nrow(x_df) <= background_n) {
         return(x_df)
     }
 
-    index <- unique(round(seq(1, nrow(x_df), length.out = n)))
+    index <- sort(sample.int(nrow(x_df), size = background_n))
     x_df[index, , drop = FALSE]
 }
 
@@ -218,6 +243,31 @@ sample_rug_values <- function(x_df, column, max_n = 5000L) {
     }
 
     data.frame(var = values)
+}
+
+
+normalize_multimodel_funs <- function(fun, n_models) {
+    if (is.function(fun)) {
+        return(rep(list(fun), n_models))
+    }
+
+    if (!is.list(fun)) {
+        stop("`fun` must be a function or a list of functions.")
+    }
+
+    if (length(fun) != n_models) {
+        stop("When `fun` is a list, it must have the same length as `models`.")
+    }
+
+    is_fun <- vapply(fun, is.function, logical(1))
+    if (!all(is_fun)) {
+        stop(
+            "Each element of `fun` must be a function. Invalid indices: ",
+            paste(which(!is_fun), collapse = ", ")
+        )
+    }
+
+    fun
 }
 
 

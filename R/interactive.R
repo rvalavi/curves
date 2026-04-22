@@ -16,10 +16,10 @@
 #'   to `predict`.
 #' @param ... Additional arguments passed to `fun`.
 #' @param n Integer, number of points to sample for each numeric predictor
-#'   variable (default: 100). For `"pdp"`, `"ice"`, and `"ice+pdp"`, `n` also
-#'   controls how many background rows are sampled from `predict_data`. For
-#'   `"ale"`, `n` sets the maximum number of intervals used to estimate local
-#'   effects for numeric predictors.
+#'   variable (default: 100). For `"ale"`, `n` sets the maximum number of
+#'   intervals used to estimate local effects for numeric predictors.
+#' @param background_n Integer, number of randomly sampled background rows used
+#'   for `"pdp"`, `"ice"`, and `"ice+pdp"` (default: `n`).
 #' @param ylab Character, label for the response scale (default:
 #'   `"Prediction"`).
 #' @param rug Logical, whether to include rug marks for numeric predictors
@@ -92,6 +92,7 @@ interactive_map_curves <- function(model, map, predictors,
                                    predict_data = NULL,
                                    fun = stats::predict, ...,
                                    n = 100,
+                                   background_n = n,
                                    ylab = "Prediction",
                                    rug = TRUE,
                                    ylim = NULL,
@@ -140,6 +141,7 @@ interactive_map_curves <- function(model, map, predictors,
         x_source = curve_source,
         fun = fun,
         n = n,
+        background_n = background_n,
         ylab = ylab,
         rug = rug,
         ylim = ylim,
@@ -343,15 +345,17 @@ validate_interactive_map_inputs <- function(map, predictors) {
 
 
 prepare_interactive_curve_data <- function(model, x_source, fun, ...,
-                                           n, ylab, rug, ylim, color,
+                                           n, background_n, ylab, rug, ylim, color,
                                            response, nrows, ncols, method) {
     n <- validate_curve_n(n)
+    background_n <- validate_background_n(background_n)
 
-    sample_size <- if (.is_rast(x_source)) {
-        max(5000L, n * 50L)
-    } else {
-        5000L
-    }
+    sample_size <- curve_sample_size(
+        x_source,
+        n = n,
+        background_n = background_n,
+        method = method
+    )
 
     x_df <- validate_predictors(x_source, sample_size = sample_size)
     predictor_names <- names(x_df)
@@ -376,7 +380,7 @@ prepare_interactive_curve_data <- function(model, x_source, fun, ...,
 
     reference_row <- if (method == "profile") build_reference_row(x_df) else NULL
     background_rows <- if (method %in% c("pdp", "ice", "ice+pdp")) {
-        sample_background_rows(x_df, n = n)
+        sample_background_rows(x_df, background_n = background_n)
     } else {
         NULL
     }

@@ -57,3 +57,61 @@ test_that("multimodel supports binary probability matrices", {
 
     expect_s3_class(plot, "ggplot")
 })
+
+
+test_that("multimodel accepts one prediction function per model", {
+    models <- list(
+        lm(
+            Sepal.Length ~ Sepal.Width + Petal.Length + Petal.Width,
+            data = iris
+        ),
+        lm(
+            Sepal.Width ~ Petal.Length + Petal.Width,
+            data = iris
+        )
+    )
+
+    plot <- multimodel(
+        models,
+        x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
+        n = 25,
+        fun = list(
+            function(model, newdata) {
+                stats::plogis(stats::predict(model, newdata))
+            },
+            function(model, newdata) {
+                prob <- stats::plogis(stats::predict(model, newdata))
+                data.frame(absent = 1 - prob, present = prob)
+            }
+        ),
+        response = "present"
+    )
+
+    expect_s3_class(plot, "ggplot")
+})
+
+
+test_that("multimodel validates list-valued fun", {
+    models <- list(
+        lm(Sepal.Length ~ Sepal.Width + Petal.Length, data = iris),
+        lm(Sepal.Length ~ Petal.Width + Petal.Length, data = iris)
+    )
+
+    expect_error(
+        multimodel(
+            models,
+            x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
+            fun = list(stats::predict)
+        ),
+        "same length as `models`"
+    )
+
+    expect_error(
+        multimodel(
+            models,
+            x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
+            fun = list(stats::predict, "not-a-function")
+        ),
+        "Each element of `fun` must be a function"
+    )
+})

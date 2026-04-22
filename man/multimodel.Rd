@@ -15,7 +15,7 @@ multimodel(
   se = TRUE,
   rug = TRUE,
   ylim = NULL,
-  color = "deepskyblue2",
+  color = "deepskyblue4",
   se_color = "grey80",
   response = NULL,
   nrows = NULL,
@@ -31,10 +31,12 @@ multimodel(
 \item{predict_data}{A data frame containing values at which predictions
 should be made. If \code{NULL}, \code{x} must be provided.}
 
-\item{fun}{A function used to generate predictions from the model. Defaults
-to \code{predict}.}
+\item{fun}{A function used to generate predictions from the model, or a list
+of functions the same length as \code{models}. Defaults to \code{predict}.}
 
-\item{...}{Additional arguments passed to \code{fun}.}
+\item{...}{Additional arguments passed to each prediction function. For
+mixed model types with different prediction interfaces, prefer supplying
+model-specific wrappers through \code{fun}.}
 
 \item{n}{Integer, number of points to sample for each numeric predictor
 variable (default: 100).}
@@ -50,7 +52,7 @@ variable (default: 100).}
 If \code{NULL}, limits are automatically set.}
 
 \item{color}{Character, colour of the response curve (default:
-\code{"deepskyblue2"}).}
+\code{"deepskyblue4"}).}
 
 \item{se_color}{Fill colour of the standard deviation ribbon.}
 
