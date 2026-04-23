@@ -16,9 +16,11 @@
 #'   intervals used to estimate local effects for numeric predictors.
 #' @param background_n Integer, number of randomly sampled background rows used
 #'   for `"pdp"`, `"ice"`, and `"ice+pdp"` (default: `n`).
-#' @param pdp_band Optional numeric in `(0, 1)` giving the central quantile
-#'   width used to draw a PDP ribbon for numeric predictors. Only supported
-#'   when `method = "pdp"`.
+#' @param interval Character, interval type used to draw a PDP ribbon for
+#'   numeric predictors. Only `"quantile"` is currently supported and only when
+#'   `method = "pdp"`. Defaults to `"none"`.
+#' @param interval_level Numeric in `(0, 1)` giving the central quantile width
+#'   used when `interval = "quantile"`. Ignored otherwise.
 #' @param nrows Integer, number of rows in the plot grid. If `NULL`, it is
 #'   automatically determined.
 #' @param ncols Integer, number of columns in the plot grid. If `NULL`, it is
@@ -59,7 +61,8 @@
 #'   method = "pdp",
 #'   n = 25,
 #'   background_n = 50,
-#'   pdp_band = 0.8
+#'   interval = "quantile",
+#'   interval_level = 0.8
 #' )
 #' print(pdp_plot)
 #'
@@ -84,7 +87,8 @@ univariate <- function(model, x = NULL,
                        fun = stats::predict, ...,
                        n = 100,
                        background_n = n,
-                       pdp_band = NULL,
+                       interval = c("none", "quantile"),
+                       interval_level = 0.8,
                        rug = TRUE,
                        ylim = NULL,
                        ylab = "Prediction",
@@ -95,9 +99,17 @@ univariate <- function(model, x = NULL,
                        method = c("profile", "pdp", "ice", "ice+pdp", "ale")) {
 
     method <- match.arg(method)
+    interval <- match.arg(interval)
     n <- validate_curve_n(n)
     background_n <- validate_background_n(background_n)
-    pdp_band <- validate_pdp_band(pdp_band, method = method)
+
+    if (interval != "none" && method != "pdp") {
+        stop("interval is only supported when method = \"pdp\"")
+    }
+
+    if (interval == "quantile") {
+        interval_level <- validate_interval_level(interval_level)
+    }
 
     if (is.null(predict_data)) {
         if (is.null(x)) {
@@ -205,7 +217,13 @@ univariate <- function(model, x = NULL,
         summary_df <- if (method %in% c("pdp", "ice+pdp")) {
             average_curve_table(
                 curve_df,
-                band = if (method == "pdp" && !spec$is_factor) pdp_band else NULL
+                band = if (method == "pdp" &&
+                    !spec$is_factor &&
+                    interval == "quantile") {
+                    interval_level
+                } else {
+                    NULL
+                }
             )
         } else {
             NULL
@@ -439,12 +457,23 @@ plot_1D <- function(df, dat, fact, ordered_factor = FALSE, rug, se,
     plt <- ggplot2::ggplot(df, ggplot2::aes(x = x, y = y))
 
     has_band <- !fact && !has_curve_groups && all(c("ymin", "ymax") %in% names(df))
+    summary_has_band <- !is.null(summary_df) &&
+        !fact &&
+        all(c("ymin", "ymax") %in% names(summary_df))
 
     if (has_band) {
         plt <- plt + ggplot2::geom_ribbon(
             ggplot2::aes(ymin = ymin, ymax = ymax),
             fill = ribcol,
             alpha = 0.35
+        )
+    } else if (summary_has_band) {
+        plt <- plt + ggplot2::geom_ribbon(
+            data = summary_df,
+            ggplot2::aes(x = x, ymin = ymin, ymax = ymax),
+            fill = ribcol,
+            alpha = 0.35,
+            inherit.aes = FALSE
         )
     } else if (ncol(df) > 2L && !fact && se && !has_curve_groups) {
         plt <- plt + ggplot2::geom_ribbon(

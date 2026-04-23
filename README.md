@@ -22,8 +22,8 @@ The current API is centred around three exported functions:
   `method = "profile"`, `"pdp"`, `"ice"`, `"ice+pdp"`, or `"ale"`.
 - `bivariate()` for two-predictor profile, PDP, or ALE surfaces as static
   heatmaps, filled contours, or interactive 3D `plotly` surfaces.
-- `multimodel()` for averaged univariate curves across multiple fitted
-  models, with an optional standard deviation ribbon.
+- `multimodel()` for aggregated profile, PDP, or ALE curves across multiple
+  fitted models, with optional interval ribbons and model overlays.
 
 A few practical details are worth calling out:
 
@@ -74,7 +74,8 @@ univariate(
   method = "pdp",
   n = 50,
   background_n = 200,
-  pdp_band = 0.8
+  interval = "quantile",
+  interval_level = 0.8
 )
 
 # Accumulated local effects curves
@@ -97,7 +98,25 @@ set of models shares the same prediction interface, pass non-default
 prediction arguments through `...`. For mixed model types, supply `fun` as a
 list of wrappers, one per model, that return the same response scale before
 averaging. If a shared prediction function returns multiple prediction
-columns, either set `response` or provide a small wrapper through `fun`.
+columns, either set `response` or provide a small wrapper through `fun`. Use
+`agg`, `weights`, `interval`, and `show_models` to control how the model
+curves are combined and displayed.
+
+```r
+models <- list(
+  lm(Sepal.Length ~ Sepal.Width + Petal.Length, data = iris),
+  lm(Sepal.Length ~ Petal.Width + Petal.Length, data = iris)
+)
+
+multimodel(
+  models,
+  predictors,
+  method = "pdp",
+  background_n = 200,
+  interval = "quantile",
+  show_models = TRUE
+)
+```
 
 ## Species distribution vignette
 

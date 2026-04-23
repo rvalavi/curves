@@ -10,16 +10,21 @@ multimodel(
   predict_data = NULL,
   fun = stats::predict,
   ...,
+  method = c("profile", "pdp", "ale"),
   n = 100,
+  background_n = n,
+  agg = mean,
+  weights = NULL,
+  interval = c("sd", "none", "quantile"),
+  interval_level = 0.8,
   ylab = "Prediction",
-  se = TRUE,
   rug = TRUE,
   ylim = NULL,
   color = "deepskyblue4",
-  se_color = "grey80",
   response = NULL,
   nrows = NULL,
-  ncols = NULL
+  ncols = NULL,
+  show_models = FALSE
 )
 }
 \arguments{
@@ -38,12 +43,32 @@ of functions the same length as \code{models}. Defaults to \code{predict}.}
 mixed model types with different prediction interfaces, prefer supplying
 model-specific wrappers through \code{fun}.}
 
+\item{method}{Character, the curve type to plot. \code{"profile"} uses a single
+reference profile, \code{"pdp"} averages over sampled predictor rows before
+aggregating across models, and \code{"ale"} draws accumulated local effects
+curves for numeric predictors and ignores factor predictors with a warning.}
+
 \item{n}{Integer, number of points to sample for each numeric predictor
-variable (default: 100).}
+variable (default: 100). For \code{"ale"}, \code{n} sets the maximum number of
+intervals used to estimate local effects for numeric predictors.}
+
+\item{background_n}{Integer, number of randomly sampled background rows used
+for \code{"pdp"} (default: \code{n}).}
+
+\item{agg}{Function used to aggregate model-specific predictions at each
+point along the curve. Defaults to \code{mean}.}
+
+\item{weights}{Optional numeric vector of model weights with the same length
+as \code{models}.}
+
+\item{interval}{Character, interval type drawn around the aggregated curve.
+\code{"sd"} draws a standard deviation ribbon, \code{"quantile"} draws a central
+quantile ribbon using \code{interval_level}, and \code{"none"} disables the ribbon.}
+
+\item{interval_level}{Numeric in \verb{(0, 1)} giving the central quantile width
+used when \code{interval = "quantile"}. Ignored otherwise.}
 
 \item{ylab}{Character, label for the y-axis (default: \code{"Prediction"}).}
-
-\item{se}{Standard deviation ribbon for the averaged curve.}
 
 \item{rug}{Logical, whether to include a rug plot along the x-axis (default:
 \code{TRUE}).}
@@ -54,8 +79,6 @@ If \code{NULL}, limits are automatically set.}
 \item{color}{Character, colour of the response curve (default:
 \code{"deepskyblue4"}).}
 
-\item{se_color}{Fill colour of the standard deviation ribbon.}
-
 \item{response}{Optional column name or index to select when \code{fun} returns
 multiple predictions per row. If \code{NULL} and exactly two prediction columns
 are returned, the second column is used.}
@@ -65,13 +88,17 @@ automatically determined.}
 
 \item{ncols}{Integer, number of columns in the plot grid. If \code{NULL}, it is
 automatically determined.}
+
+\item{show_models}{Logical, whether to overlay individual model curves
+beneath the aggregated curve (default: \code{FALSE}).}
 }
 \value{
 A \code{ggplot2} object containing the response curves arranged in a grid.
 }
 \description{
-This function generates response curves for several models by varying one
-predictor at a time while keeping others constant.
+This function generates profile, partial dependence, or ALE response curves
+for several models by varying one predictor at a time and aggregating the
+fitted curves across models.
 }
 \examples{
 data(iris)

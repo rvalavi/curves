@@ -13,6 +13,47 @@ test_that("multimodel averages response curves across models", {
 })
 
 
+test_that("multimodel supports pdp, ale, and model overlays", {
+    models <- list(
+        lm(
+            Sepal.Length ~ Sepal.Width + Petal.Length + Petal.Width,
+            data = iris
+        ),
+        lm(
+            Sepal.Length ~ Sepal.Width + Petal.Length,
+            data = iris
+        )
+    )
+
+    pdp_plot <- multimodel(
+        models,
+        x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
+        method = "pdp",
+        n = 20,
+        background_n = 15,
+        interval = "quantile",
+        show_models = TRUE
+    )
+
+    expect_s3_class(pdp_plot, "ggplot")
+
+    expect_warning(
+        ale_plot <- multimodel(
+            list(
+                lm(Sepal.Length ~ Species + Sepal.Width, data = iris),
+                lm(Sepal.Length ~ Species + Petal.Length, data = iris)
+            ),
+            x = iris[, c("Species", "Sepal.Width", "Petal.Length")],
+            method = "ale",
+            n = 15
+        ),
+        "Ignoring factor predictors: Species"
+    )
+
+    expect_s3_class(ale_plot, "ggplot")
+})
+
+
 test_that("multimodel handles factor predictors", {
     models <- list(
         lm(Sepal.Length ~ Species + Petal.Width, data = iris),
@@ -25,6 +66,25 @@ test_that("multimodel handles factor predictors", {
     )
 
     expect_s3_class(plot, "ggplot")
+})
+
+
+test_that("multimodel summaries support custom aggregation and weights", {
+    mat <- cbind(c(1, 3), c(3, 5))
+
+    summary_df <- curves:::summarize_multimodel_predictions(
+        x = c(0, 1),
+        mat = mat,
+        agg = function(x, w) sum(x * w) / sum(w),
+        weights = c(1, 3),
+        interval = "sd"
+    )
+
+    expect_equal(summary_df$y, c(2.5, 4.5))
+    expect_equal(
+        summary_df$ymax - summary_df$y,
+        rep(sqrt(0.75), 2)
+    )
 })
 
 
@@ -56,6 +116,34 @@ test_that("multimodel supports binary probability matrices", {
     )
 
     expect_s3_class(plot, "ggplot")
+})
+
+
+test_that("multimodel validates weights and custom aggregators", {
+    models <- list(
+        lm(Sepal.Length ~ Sepal.Width + Petal.Length, data = iris),
+        lm(Sepal.Length ~ Petal.Width + Petal.Length, data = iris)
+    )
+
+    expect_error(
+        multimodel(
+            models,
+            x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
+            weights = 1
+        ),
+        "same length as models"
+    )
+
+    expect_error(
+        curves:::summarize_multimodel_predictions(
+            x = c(0, 1),
+            mat = cbind(c(1, 3), c(3, 5)),
+            agg = function(x) stats::median(x),
+            weights = c(1, 3),
+            interval = "none"
+        ),
+        "accept a `weights` or `w` argument"
+    )
 })
 
 

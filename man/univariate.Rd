@@ -12,10 +12,11 @@ univariate(
   ...,
   n = 100,
   background_n = n,
-  pdp_band = NULL,
-  ylab = "Prediction",
+  interval = c("none", "quantile"),
+  interval_level = 0.8,
   rug = TRUE,
   ylim = NULL,
+  ylab = "Prediction",
   color = "deepskyblue4",
   response = NULL,
   nrows = NULL,
@@ -44,17 +45,20 @@ intervals used to estimate local effects for numeric predictors.}
 \item{background_n}{Integer, number of randomly sampled background rows used
 for \code{"pdp"}, \code{"ice"}, and \code{"ice+pdp"} (default: \code{n}).}
 
-\item{pdp_band}{Optional numeric in \code{(0, 1)} giving the central quantile
-width used to draw a PDP ribbon for numeric predictors. Only supported when
-\code{method = "pdp"}.}
+\item{interval}{Character, interval type used to draw a PDP ribbon for
+numeric predictors. Only \code{"quantile"} is currently supported and only when
+\code{method = "pdp"}. Defaults to \code{"none"}.}
 
-\item{ylab}{Character, label for the y-axis (default: \code{"Prediction"}).}
+\item{interval_level}{Numeric in \verb{(0, 1)} giving the central quantile width
+used when \code{interval = "quantile"}. Ignored otherwise.}
 
 \item{rug}{Logical, whether to include a rug plot along the x-axis (default:
 \code{TRUE}).}
 
 \item{ylim}{Numeric vector of length 2, specifying the limits of the y-axis.
 If \code{NULL}, limits are automatically set.}
+
+\item{ylab}{Character, label for the y-axis (default: \code{"Prediction"}).}
 
 \item{color}{Character, colour of the response curve (default:
 \code{"deepskyblue4"}).}
@@ -98,7 +102,8 @@ pdp_plot <- univariate(
   method = "pdp",
   n = 25,
   background_n = 50,
-  pdp_band = 0.8
+  interval = "quantile",
+  interval_level = 0.8
 )
 print(pdp_plot)
 

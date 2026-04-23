@@ -312,7 +312,7 @@ test_that("numeric curves draw a ribbon when ymin and ymax are supplied", {
 })
 
 
-test_that("pdp_band is only accepted for pdp and valid quantile widths", {
+test_that("interval is only accepted for pdp and valid quantile widths", {
     model <- lm(
         Sepal.Length ~ Sepal.Width + Petal.Length + Petal.Width,
         data = iris
@@ -323,7 +323,7 @@ test_that("pdp_band is only accepted for pdp and valid quantile widths", {
             model,
             x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
             method = "ice",
-            pdp_band = 0.8
+            interval = "quantile"
         ),
         "only supported when method = \"pdp\""
     )
@@ -333,7 +333,8 @@ test_that("pdp_band is only accepted for pdp and valid quantile widths", {
             model,
             x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
             method = "pdp",
-            pdp_band = NA_real_
+            interval = "quantile",
+            interval_level = NA_real_
         ),
         "single number between 0 and 1"
     )

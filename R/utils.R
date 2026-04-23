@@ -117,6 +117,17 @@ validate_pdp_band <- function(pdp_band, method) {
 }
 
 
+validate_interval_level <- function(interval_level) {
+    if (!is.numeric(interval_level) || length(interval_level) != 1L ||
+        is.na(interval_level) || !is.finite(interval_level) ||
+        interval_level <= 0 || interval_level >= 1) {
+        stop("interval_level must be a single number between 0 and 1")
+    }
+
+    as.numeric(interval_level)
+}
+
+
 curve_sample_size <- function(x_source, n, background_n, method) {
     target_n <- if (method %in% c("pdp", "ice", "ice+pdp")) {
         max(n, background_n)
