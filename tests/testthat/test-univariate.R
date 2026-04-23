@@ -58,6 +58,19 @@ test_that("univariate supports pdp and ice-based methods", {
 })
 
 
+test_that("univariate uses a method-specific default y-axis label", {
+    expect_equal(curves:::default_univariate_ylab("profile"), "Prediction")
+    expect_equal(
+        curves:::default_univariate_ylab("ice+pdp"),
+        "Prediction"
+    )
+    expect_equal(
+        curves:::default_univariate_ylab("ale"),
+        "Accumulated local effect"
+    )
+})
+
+
 test_that("univariate ale warns and skips factor predictors", {
     model <- lm(Sepal.Length ~ Species + Petal.Width, data = iris)
 

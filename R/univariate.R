@@ -29,7 +29,9 @@
 #'   `TRUE`).
 #' @param ylim Numeric vector of length 2, specifying the limits of the y-axis.
 #'   If `NULL`, limits are automatically set.
-#' @param ylab Character, label for the y-axis (default: `"Prediction"`).
+#' @param ylab Optional character label for the y-axis. If `NULL`, the default
+#'   is `"Prediction"` for profile, PDP, and ICE methods, and
+#'   `"Accumulated local effect"` for `method = "ale"`.
 #' @param color Character, colour of the response curve (default:
 #'   `"deepskyblue4"`).
 #' @param response Optional column name or index to select when `fun` returns
@@ -91,7 +93,7 @@ univariate <- function(model, x = NULL,
                        interval_level = 0.8,
                        rug = TRUE,
                        ylim = NULL,
-                       ylab = "Prediction",
+                       ylab = NULL,
                        color = "deepskyblue4",
                        response = NULL,
                        nrows = NULL,
@@ -109,6 +111,10 @@ univariate <- function(model, x = NULL,
 
     if (interval == "quantile") {
         interval_level <- validate_interval_level(interval_level)
+    }
+
+    if (is.null(ylab)) {
+        ylab <- default_univariate_ylab(method)
     }
 
     if (is.null(predict_data)) {
@@ -282,6 +288,15 @@ univariate <- function(model, x = NULL,
     })
 
     cowplot::plot_grid(plotlist = plots, nrow = nrows, ncol = ncols)
+}
+
+
+default_univariate_ylab <- function(method) {
+    if (identical(method, "ale")) {
+        return("Accumulated local effect")
+    }
+
+    "Prediction"
 }
 
 

@@ -16,7 +16,7 @@ univariate(
   interval_level = 0.8,
   rug = TRUE,
   ylim = NULL,
-  ylab = "Prediction",
+  ylab = NULL,
   color = "deepskyblue4",
   response = NULL,
   nrows = NULL,
@@ -58,7 +58,9 @@ used when \code{interval = "quantile"}. Ignored otherwise.}
 \item{ylim}{Numeric vector of length 2, specifying the limits of the y-axis.
 If \code{NULL}, limits are automatically set.}
 
-\item{ylab}{Character, label for the y-axis (default: \code{"Prediction"}).}
+\item{ylab}{Optional character label for the y-axis. If \code{NULL}, the
+default is \code{"Prediction"} for profile, PDP, and ICE methods, and
+\code{"Accumulated local effect"} for \code{method = "ale"}.}
 
 \item{color}{Character, colour of the response curve (default:
 \code{"deepskyblue4"}).}
