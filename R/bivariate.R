@@ -16,7 +16,12 @@
 #'   to `predict`.
 #' @param ... Additional arguments passed to `fun`.
 #' @param n Integer, number of points to sample for each numeric predictor
-#'   variable (default: 40).
+#'   variable (default: 40). For `"ale"`, `n` sets the maximum number of
+#'   intervals used to estimate local effects for each numeric predictor.
+#' @param background_n Integer, number of randomly sampled background rows used
+#'   for `"pdp"` (default: `n`).
+#' @param rug Logical, whether to add a marginal rug for numeric predictor pairs
+#'   in static plots (default: `FALSE`).
 #' @param plot_type Character, plot type. Use `"heatmap"` for a static surface,
 #'   `"contour"` for filled contours, or `"surface"` for an interactive 3D
 #'   surface. The 3D surface requires the suggested `plotly` package and a
@@ -33,6 +38,11 @@
 #'   automatically determined.
 #' @param ncols Integer, number of columns in the plot grid. If `NULL`, it is
 #'   automatically determined.
+#' @param method Character, the surface type to plot. `"profile"` uses a single
+#'   reference profile, `"pdp"` averages over sampled predictor rows, and
+#'   `"ale"` draws a centred second-order accumulated local effects surface for
+#'   numeric predictor pairs. Non-numeric pairs are ignored with a warning for
+#'   `"ale"`.
 #'
 #' @return A `ggplot2` object for static plot types or a `plotly` widget for
 #'   `plot_type = "surface"`.
@@ -51,6 +61,26 @@
 #' )
 #' print(response_plot)
 #'
+#' pdp_plot <- bivariate(
+#'   model,
+#'   x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
+#'   pairs = c("Sepal.Width", "Petal.Length"),
+#'   method = "pdp",
+#'   n = 25,
+#'   background_n = 50,
+#'   rug = TRUE
+#' )
+#' print(pdp_plot)
+#'
+#' ale_plot <- bivariate(
+#'   model,
+#'   x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
+#'   pairs = c("Sepal.Width", "Petal.Length"),
+#'   method = "ale",
+#'   n = 10
+#' )
+#' print(ale_plot)
+#'
 #' if (requireNamespace("plotly", quietly = TRUE)) {
 #'   surface_plot <- bivariate(
 #'     model,
@@ -62,13 +92,25 @@
 #' }
 bivariate <- function(model, x = NULL, predict_data = NULL, pairs = NULL,
                       fun = stats::predict, ..., n = 40,
+                      background_n = n, rug = FALSE,
                       plot_type = c("heatmap", "contour", "surface"),
                       zlab = "Prediction", bins = 8,
                       palette = "viridis",
                       response = NULL,
-                      nrows = NULL, ncols = NULL) {
+                      nrows = NULL, ncols = NULL,
+                      method = c("profile", "pdp", "ale")) {
 
     plot_type <- match.arg(plot_type)
+    method <- match.arg(method)
+    n <- validate_curve_n(n)
+    background_n <- validate_background_n(background_n)
+
+    if (missing(zlab) && method == "ale") {
+        zlab <- "ALE"
+    }
+    if (missing(palette) && method == "ale") {
+        palette <- default_ale_palette()
+    }
 
     if (is.null(predict_data)) {
         if (is.null(x)) {
@@ -79,40 +121,84 @@ bivariate <- function(model, x = NULL, predict_data = NULL, pairs = NULL,
         x_source <- predict_data
     }
 
-    if (!is.numeric(n) || length(n) != 1L || n < 2) {
-        stop("n must be a single number greater than or equal to 2")
-    }
-
     if (!is.numeric(bins) || length(bins) != 1L || bins < 2) {
         stop("bins must be a single number greater than or equal to 2")
     }
 
-    x_df <- validate_predictors(x_source, sample_size = 5000L)
-    pair_specs <- build_pair_specs(x_df, pairs = pairs, n = n)
+    sample_size <- curve_sample_size(
+        x_source,
+        n = n,
+        background_n = background_n,
+        method = method
+    )
+
+    x_df <- validate_predictors(x_source, sample_size = sample_size)
+    pair_specs <- build_pair_specs(x_df, pairs = pairs, n = n, method = method)
+    pair_specs <- if (method == "ale") {
+        filter_ale_pair_specs(pair_specs)
+    } else {
+        pair_specs
+    }
     npairs <- length(pair_specs)
+
+    if (!npairs) {
+        if (method == "ale") {
+            stop("ALE requires at least one numeric predictor pair to plot")
+        }
+
+        stop("No valid predictor pairs remain to plot")
+    }
 
     if (plot_type == "surface" && npairs != 1L) {
         stop("plot_type = \"surface\" requires a single predictor pair")
     }
 
-    reference_row <- build_reference_row(x_df)
-    tables <- lapply(pair_specs, function(spec) {
-        grid <- build_bivariate_grid(
-            reference_row = reference_row,
-            x_name = spec$x_name,
-            x_values = spec$x_values,
-            y_name = spec$y_name,
-            y_values = spec$y_values
-        )
+    if (rug && plot_type == "surface") {
+        warning("rug is ignored when plot_type = \"surface\"", call. = FALSE)
+    }
 
-        data.frame(
-            x = grid[[spec$x_name]],
-            y = grid[[spec$y_name]],
-            z = extract_prediction_vector(
-                fun(model, grid, ...),
-                n = nrow(grid),
-                response = response
-            )
+    reference_row <- if (method == "profile") build_reference_row(x_df) else NULL
+    background_rows <- if (method == "pdp") {
+        sample_background_rows(x_df, background_n = background_n)
+    } else {
+        NULL
+    }
+    ale_rows <- if (method == "ale") {
+        complete_predictor_rows(x_df, context = "ALE methods")
+    } else {
+        NULL
+    }
+
+    tables <- lapply(pair_specs, function(spec) {
+        if (method == "profile") {
+            return(build_profile_surface_table(
+                model = model,
+                reference_row = reference_row,
+                spec = spec,
+                fun = fun,
+                response = response,
+                ...
+            ))
+        }
+
+        if (method == "pdp") {
+            return(build_pdp_surface_table(
+                model = model,
+                background_rows = background_rows,
+                spec = spec,
+                fun = fun,
+                response = response,
+                ...
+            ))
+        }
+
+        build_ale_surface_table(
+            model = model,
+            ale_rows = ale_rows,
+            spec = spec,
+            fun = fun,
+            response = response,
+            ...
         )
     })
 
@@ -124,8 +210,12 @@ bivariate <- function(model, x = NULL, predict_data = NULL, pairs = NULL,
         ))
     }
 
-    z_limits <- curve_limits(unlist(lapply(tables, function(table) table$z)),
-                             padding = 0.02)
+    z_values <- unlist(lapply(tables, function(table) table$z))
+    z_limits <- if (method == "ale") {
+        ale_surface_limits(z_values, padding = 0.02)
+    } else {
+        curve_limits(z_values, padding = 0.02)
+    }
     contour_breaks <- response_breaks(z_limits, bins = bins)
 
     plots <- Map(
@@ -140,7 +230,19 @@ bivariate <- function(model, x = NULL, predict_data = NULL, pairs = NULL,
                 z_name = zlab,
                 palette = palette,
                 z_limits = z_limits,
-                contour_breaks = contour_breaks
+                contour_breaks = contour_breaks,
+                rug_df = if (rug &&
+                    !spec$x_factor &&
+                    !spec$y_factor &&
+                    plot_type != "surface") {
+                    sample_bivariate_rug_data(
+                        x_df,
+                        x_name = spec$x_name,
+                        y_name = spec$y_name
+                    )
+                } else {
+                    NULL
+                }
             )
         },
         pair_specs,
@@ -158,22 +260,65 @@ bivariate <- function(model, x = NULL, predict_data = NULL, pairs = NULL,
 }
 
 
-build_pair_specs <- function(x_df, pairs, n) {
+build_pair_specs <- function(x_df, pairs, n, method = "profile") {
     pair_list <- validate_pairs(x_df, pairs = pairs)
 
     lapply(pair_list, function(pair) {
         x_name <- pair[1]
         y_name <- pair[2]
+        x_breaks <- if (method == "ale" && is.numeric(x_df[[x_name]])) {
+            ale_breaks(x_df[[x_name]], n = n)
+        } else {
+            NULL
+        }
+        y_breaks <- if (method == "ale" && is.numeric(x_df[[y_name]])) {
+            ale_breaks(x_df[[y_name]], n = n)
+        } else {
+            NULL
+        }
 
         list(
             x_name = x_name,
             y_name = y_name,
             x_factor = is.factor(x_df[[x_name]]),
             y_factor = is.factor(x_df[[y_name]]),
-            x_values = curve_values(x_df[[x_name]], n = n),
-            y_values = curve_values(x_df[[y_name]], n = n)
+            x_values = if (!is.null(x_breaks)) {
+                ale_interval_centres(x_breaks)
+            } else {
+                curve_values(x_df[[x_name]], n = n)
+            },
+            y_values = if (!is.null(y_breaks)) {
+                ale_interval_centres(y_breaks)
+            } else {
+                curve_values(x_df[[y_name]], n = n)
+            },
+            x_breaks = x_breaks,
+            y_breaks = y_breaks
         )
     })
+}
+
+
+filter_ale_pair_specs <- function(pair_specs) {
+    keep <- vapply(pair_specs, function(spec) {
+        !spec$x_factor && !spec$y_factor
+    }, logical(1))
+
+    if (!all(keep)) {
+        warning(
+            "ALE currently supports numeric predictor pairs only. Ignoring pairs: ",
+            paste(vapply(pair_specs[!keep], pair_label, character(1)),
+                  collapse = ", "),
+            call. = FALSE
+        )
+    }
+
+    pair_specs[keep]
+}
+
+
+pair_label <- function(spec) {
+    paste(spec$x_name, spec$y_name, sep = " vs ")
 }
 
 
@@ -258,13 +403,246 @@ normalize_pair_selection <- function(pair, nms) {
 }
 
 
+ale_interval_centres <- function(breaks) {
+    if (length(breaks) < 2L) {
+        return(breaks)
+    }
+
+    (breaks[-1L] + breaks[-length(breaks)]) / 2
+}
+
+
+build_profile_surface_table <- function(model, reference_row, spec, fun,
+                                        response, ...) {
+    grid <- build_bivariate_grid(
+        reference_row = reference_row,
+        x_name = spec$x_name,
+        x_values = spec$x_values,
+        y_name = spec$y_name,
+        y_values = spec$y_values
+    )
+
+    data.frame(
+        x = grid[[spec$x_name]],
+        y = grid[[spec$y_name]],
+        z = extract_prediction_vector(
+            fun(model, grid, ...),
+            n = nrow(grid),
+            response = response
+        )
+    )
+}
+
+
+build_pdp_surface_table <- function(model, background_rows, spec, fun,
+                                    response, ...) {
+    grid <- build_bivariate_stack(
+        background_rows = background_rows,
+        x_name = spec$x_name,
+        x_values = spec$x_values,
+        y_name = spec$y_name,
+        y_values = spec$y_values
+    )
+    cell_index <- build_bivariate_index_grid(spec$x_values, spec$y_values)
+    n_cells <- nrow(cell_index)
+
+    prediction_matrix <- matrix(
+        extract_prediction_vector(
+            fun(model, grid, ...),
+            n = nrow(grid),
+            response = response
+        ),
+        nrow = nrow(background_rows),
+        ncol = n_cells,
+        byrow = TRUE
+    )
+
+    data.frame(
+        x = spec$x_values[cell_index$x],
+        y = spec$y_values[cell_index$y],
+        z = colMeans(prediction_matrix)
+    )
+}
+
+
+build_ale_surface_table <- function(model, ale_rows, spec, fun, response, ...) {
+    if (is.null(spec$x_breaks) || is.null(spec$y_breaks)) {
+        stop("ALE surface specs must include numeric breakpoints")
+    }
+
+    if (length(spec$x_breaks) < 2L || length(spec$y_breaks) < 2L) {
+        return(data.frame(
+            x = spec$x_values[1],
+            y = spec$y_values[1],
+            z = 0,
+            xmin = spec$x_values[1],
+            xmax = spec$x_values[1],
+            ymin = spec$y_values[1],
+            ymax = spec$y_values[1]
+        ))
+    }
+
+    x_interval <- findInterval(
+        ale_rows[[spec$x_name]],
+        vec = spec$x_breaks,
+        rightmost.closed = TRUE,
+        all.inside = TRUE
+    )
+    y_interval <- findInterval(
+        ale_rows[[spec$y_name]],
+        vec = spec$y_breaks,
+        rightmost.closed = TRUE,
+        all.inside = TRUE
+    )
+
+    lower_lower <- ale_rows
+    lower_upper <- ale_rows
+    upper_lower <- ale_rows
+    upper_upper <- ale_rows
+
+    lower_lower[[spec$x_name]] <- spec$x_breaks[x_interval]
+    lower_upper[[spec$x_name]] <- spec$x_breaks[x_interval]
+    upper_lower[[spec$x_name]] <- spec$x_breaks[x_interval + 1L]
+    upper_upper[[spec$x_name]] <- spec$x_breaks[x_interval + 1L]
+
+    lower_lower[[spec$y_name]] <- spec$y_breaks[y_interval]
+    upper_lower[[spec$y_name]] <- spec$y_breaks[y_interval]
+    lower_upper[[spec$y_name]] <- spec$y_breaks[y_interval + 1L]
+    upper_upper[[spec$y_name]] <- spec$y_breaks[y_interval + 1L]
+
+    diffs <- extract_prediction_vector(
+        fun(model, upper_upper, ...),
+        n = nrow(upper_upper),
+        response = response
+    ) - extract_prediction_vector(
+        fun(model, lower_upper, ...),
+        n = nrow(lower_upper),
+        response = response
+    ) - extract_prediction_vector(
+        fun(model, upper_lower, ...),
+        n = nrow(upper_lower),
+        response = response
+    ) + extract_prediction_vector(
+        fun(model, lower_lower, ...),
+        n = nrow(lower_lower),
+        response = response
+    )
+
+    nx <- length(spec$x_breaks) - 1L
+    ny <- length(spec$y_breaks) - 1L
+    cell_id <- (x_interval - 1L) * ny + y_interval
+    counts <- tabulate(cell_id, nbins = nx * ny)
+    mean_diffs <- rep(NA_real_, length(counts))
+    keep <- counts > 0L
+    mean_diffs[keep] <- vapply(which(keep), function(index) {
+        mean(diffs[cell_id == index])
+    }, numeric(1))
+
+    counts <- matrix(counts, nrow = nx, ncol = ny, byrow = TRUE)
+    mean_diffs <- matrix(mean_diffs, nrow = nx, ncol = ny, byrow = TRUE)
+    filled_diffs <- fill_missing_ale_cells(mean_diffs)
+    raw_surface <- accumulate_ale_surface(filled_diffs)
+
+    row_means <- vapply(seq_len(nx), function(index) {
+        if (!sum(counts[index, ])) {
+            return(0)
+        }
+
+        stats::weighted.mean(raw_surface[index, ], w = counts[index, ])
+    }, numeric(1))
+    col_means <- vapply(seq_len(ny), function(index) {
+        if (!sum(counts[, index])) {
+            return(0)
+        }
+
+        stats::weighted.mean(raw_surface[, index], w = counts[, index])
+    }, numeric(1))
+    overall_mean <- if (sum(counts)) {
+        stats::weighted.mean(as.vector(raw_surface), w = as.vector(counts))
+    } else {
+        0
+    }
+
+    centred_surface <- sweep(raw_surface, 1, row_means, FUN = "-")
+    centred_surface <- sweep(centred_surface, 2, col_means, FUN = "-")
+    centred_surface <- centred_surface + overall_mean
+
+    cell_index <- build_bivariate_index_grid(spec$x_values, spec$y_values)
+
+    data.frame(
+        x = spec$x_values[cell_index$x],
+        y = spec$y_values[cell_index$y],
+        z = centred_surface[cbind(cell_index$x, cell_index$y)],
+        count = counts[cbind(cell_index$x, cell_index$y)],
+        xmin = spec$x_breaks[cell_index$x],
+        xmax = spec$x_breaks[cell_index$x + 1L],
+        ymin = spec$y_breaks[cell_index$y],
+        ymax = spec$y_breaks[cell_index$y + 1L]
+    )
+}
+
+
+fill_missing_ale_cells <- function(values) {
+    if (!anyNA(values)) {
+        return(values)
+    }
+
+    filled <- values
+
+    repeat {
+        missing <- which(is.na(filled), arr.ind = TRUE)
+        if (!nrow(missing)) {
+            break
+        }
+
+        changed <- FALSE
+        for (index in seq_len(nrow(missing))) {
+            row_index <- missing[index, 1]
+            col_index <- missing[index, 2]
+            row_span <- seq(max(1L, row_index - 1L), min(nrow(filled), row_index + 1L))
+            col_span <- seq(max(1L, col_index - 1L), min(ncol(filled), col_index + 1L))
+            neighbours <- filled[row_span, col_span]
+            neighbours <- neighbours[!is.na(neighbours)]
+
+            if (length(neighbours)) {
+                filled[row_index, col_index] <- mean(neighbours)
+                changed <- TRUE
+            }
+        }
+
+        if (!changed) {
+            break
+        }
+    }
+
+    filled[is.na(filled)] <- 0
+    filled
+}
+
+
+accumulate_ale_surface <- function(diffs) {
+    cumulative_cols <- diffs
+    for (index in seq_len(ncol(diffs))) {
+        cumulative_cols[, index] <- cumsum(diffs[, index])
+    }
+
+    cumulative_rows <- diffs
+    for (index in seq_len(nrow(diffs))) {
+        cumulative_rows[index, ] <- cumsum(diffs[index, ])
+    }
+
+    full_cumsum <- cumulative_cols
+    for (index in seq_len(nrow(cumulative_cols))) {
+        full_cumsum[index, ] <- cumsum(cumulative_cols[index, ])
+    }
+
+    full_cumsum - 0.5 * cumulative_cols - 0.5 * cumulative_rows + 0.25 * diffs
+}
+
+
 build_bivariate_grid <- function(reference_row, x_name, x_values, y_name,
                                  y_values) {
-    index_grid <- expand.grid(
-        x = seq_along(x_values),
-        y = seq_along(y_values),
-        KEEP.OUT.ATTRS = FALSE
-    )
+    index_grid <- build_bivariate_index_grid(x_values, y_values)
 
     grid <- reference_row[rep(1L, nrow(index_grid)), , drop = FALSE]
     grid[[x_name]] <- coerce_curve_values(
@@ -274,6 +652,37 @@ build_bivariate_grid <- function(reference_row, x_name, x_values, y_name,
     grid[[y_name]] <- coerce_curve_values(
         reference = reference_row[[y_name]],
         values = y_values[index_grid$y]
+    )
+
+    grid
+}
+
+
+build_bivariate_index_grid <- function(x_values, y_values) {
+    expand.grid(
+        x = seq_along(x_values),
+        y = seq_along(y_values),
+        KEEP.OUT.ATTRS = FALSE
+    )
+}
+
+
+build_bivariate_stack <- function(background_rows, x_name, x_values, y_name,
+                                  y_values) {
+    index_grid <- build_bivariate_index_grid(x_values, y_values)
+    grid <- background_rows[
+        rep(seq_len(nrow(background_rows)), each = nrow(index_grid)),
+        ,
+        drop = FALSE
+    ]
+
+    grid[[x_name]] <- coerce_curve_values(
+        reference = background_rows[[x_name]],
+        values = rep(x_values[index_grid$x], times = nrow(background_rows))
+    )
+    grid[[y_name]] <- coerce_curve_values(
+        reference = background_rows[[y_name]],
+        values = rep(y_values[index_grid$y], times = nrow(background_rows))
     )
 
     grid
@@ -306,8 +715,7 @@ response_breaks <- function(z_limits, bins) {
 
 
 plot_2D <- function(df, x_name, y_name, x_factor, y_factor, plot_type, z_name,
-                    palette, z_limits, contour_breaks) {
-    pair_label <- paste(x_name, y_name, sep = " vs ")
+                    palette, z_limits, contour_breaks, rug_df = NULL) {
 
     if (plot_type == "contour" && (x_factor || y_factor)) {
         stop(
@@ -332,7 +740,24 @@ plot_2D <- function(df, x_name, y_name, x_factor, y_factor, plot_type, z_name,
             response_fill_scale(
                 palette = palette,
                 z_limits = z_limits,
-                discrete = TRUE
+                discrete = TRUE,
+                n_levels = max(length(contour_breaks) - 1L, 1L)
+            )
+    } else if (!x_factor && !y_factor && has_rect_bounds(df)) {
+        plt <- plt +
+            ggplot2::geom_rect(
+                ggplot2::aes(
+                    xmin = xmin,
+                    xmax = xmax,
+                    ymin = ymin,
+                    ymax = ymax,
+                    fill = z
+                )
+            ) +
+            response_fill_scale(
+                palette = palette,
+                z_limits = z_limits,
+                discrete = FALSE
             )
     } else if (!x_factor && !y_factor) {
         plt <- plt +
@@ -352,17 +777,27 @@ plot_2D <- function(df, x_name, y_name, x_factor, y_factor, plot_type, z_name,
             )
     }
 
+    if (!is.null(rug_df) && nrow(rug_df)) {
+        plt <- plt + ggplot2::geom_rug(
+            data = rug_df,
+            ggplot2::aes(x = x, y = y),
+            inherit.aes = FALSE,
+            sides = "bl",
+            color = "grey30",
+            alpha = 0.35
+        )
+    }
+
     plt <- plt +
         ggplot2::theme_bw() +
         ggplot2::labs(
             x = x_name,
             y = y_name,
-            fill = z_name,
-            title = pair_label
+            fill = z_name
         ) +
         ggplot2::theme(
             panel.grid = ggplot2::element_blank(),
-            plot.title = ggplot2::element_text(size = 10)
+            plot.title = ggplot2::element_blank()
         )
 
     if (!x_factor && !y_factor) {
@@ -373,7 +808,12 @@ plot_2D <- function(df, x_name, y_name, x_factor, y_factor, plot_type, z_name,
 }
 
 
-response_fill_scale <- function(palette, z_limits, discrete) {
+has_rect_bounds <- function(df) {
+    all(c("xmin", "xmax", "ymin", "ymax") %in% names(df))
+}
+
+
+response_fill_scale <- function(palette, z_limits, discrete, n_levels = NULL) {
     if (is_viridis_palette(palette)) {
         if (discrete) {
             return(ggplot2::scale_fill_viridis_d(option = palette))
@@ -386,13 +826,23 @@ response_fill_scale <- function(palette, z_limits, discrete) {
     }
 
     if (discrete) {
-        return(ggplot2::scale_fill_manual(values = palette))
+        values <- if (is.null(n_levels)) palette else {
+            grDevices::colorRampPalette(palette)(n_levels)
+        }
+
+        return(ggplot2::scale_fill_manual(values = values))
     }
 
     ggplot2::scale_fill_gradientn(
         colours = palette,
         limits = z_limits
     )
+}
+
+
+default_ale_palette <- function() {
+    c("#2166AC", "#4393C3", "#92C5DE", "#D1E5F0", "#F7F7F7",
+      "#FDDBC7", "#F4A582", "#D6604D", "#B2182B")
 }
 
 
@@ -404,6 +854,40 @@ is_viridis_palette <- function(palette) {
             "magma", "inferno", "plasma", "viridis",
             "cividis", "rocket", "mako", "turbo"
         )
+}
+
+
+ale_surface_limits <- function(values, padding = 0.02) {
+    max_abs <- max(abs(values), na.rm = TRUE)
+    if (!is.finite(max_abs)) {
+        stop("Predictions must be finite to compute plot limits")
+    }
+
+    pad <- if (max_abs == 0) {
+        padding
+    } else {
+        max_abs * padding
+    }
+
+    c(-max_abs - pad, max_abs + pad)
+}
+
+
+sample_bivariate_rug_data <- function(x_df, x_name, y_name, max_n = 5000L) {
+    dat <- x_df[, c(x_name, y_name), drop = FALSE]
+    names(dat) <- c("x", "y")
+    dat <- dat[stats::complete.cases(dat), , drop = FALSE]
+
+    if (!nrow(dat)) {
+        return(data.frame(x = numeric(0), y = numeric(0)))
+    }
+
+    if (nrow(dat) > max_n) {
+        index <- unique(round(seq(1, nrow(dat), length.out = max_n)))
+        dat <- dat[index, , drop = FALSE]
+    }
+
+    dat
 }
 
 

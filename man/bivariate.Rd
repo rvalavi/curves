@@ -12,13 +12,16 @@ bivariate(
   fun = stats::predict,
   ...,
   n = 40,
+  background_n = n,
+  rug = FALSE,
   plot_type = c("heatmap", "contour", "surface"),
   zlab = "Prediction",
   bins = 8,
   palette = "viridis",
   response = NULL,
   nrows = NULL,
-  ncols = NULL
+  ncols = NULL,
+  method = c("profile", "pdp", "ale")
 )
 }
 \arguments{
@@ -41,7 +44,14 @@ to \code{predict}.}
 \item{...}{Additional arguments passed to \code{fun}.}
 
 \item{n}{Integer, number of points to sample for each numeric predictor
-variable (default: 40).}
+variable (default: 40). For \code{"ale"}, \code{n} sets the maximum number of
+intervals used to estimate local effects for each numeric predictor.}
+
+\item{background_n}{Integer, number of randomly sampled background rows used
+for \code{"pdp"} (default: \code{n}).}
+
+\item{rug}{Logical, whether to add a marginal rug for numeric predictor pairs
+in static plots (default: \code{FALSE}).}
 
 \item{plot_type}{Character, plot type. Use \code{"heatmap"} for a static surface,
 \code{"contour"} for filled contours, or \code{"surface"} for an interactive 3D
@@ -65,6 +75,12 @@ automatically determined.}
 
 \item{ncols}{Integer, number of columns in the plot grid. If \code{NULL}, it is
 automatically determined.}
+
+\item{method}{Character, the surface type to plot. \code{"profile"} uses a
+single reference profile, \code{"pdp"} averages over sampled predictor rows,
+and \code{"ale"} draws a centred second-order accumulated local effects
+surface for numeric predictor pairs. Non-numeric pairs are ignored with a
+warning for \code{"ale"}.}
 }
 \value{
 A \code{ggplot2} object for static plot types or a \code{plotly} widget for
@@ -85,6 +101,26 @@ response_plot <- bivariate(
   x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")]
 )
 print(response_plot)
+
+pdp_plot <- bivariate(
+  model,
+  x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
+  pairs = c("Sepal.Width", "Petal.Length"),
+  method = "pdp",
+  n = 25,
+  background_n = 50,
+  rug = TRUE
+)
+print(pdp_plot)
+
+ale_plot <- bivariate(
+  model,
+  x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
+  pairs = c("Sepal.Width", "Petal.Length"),
+  method = "ale",
+  n = 10
+)
+print(ale_plot)
 
 if (requireNamespace("plotly", quietly = TRUE)) {
   surface_plot <- bivariate(

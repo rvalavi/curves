@@ -153,7 +153,7 @@ curves::univariate(
 )
 ```
 
-The next example follows the original workflow closely by plotting the second
+The next examples follow the original workflow closely by plotting the second
 and third predictors in `covars`, which correspond to `mi` and `rainann`.
 
 ```{r, eval = species_example, fig.width=5.6, fig.height=4, message = FALSE, warning = FALSE}
@@ -161,10 +161,31 @@ curves::bivariate(
   rf_model,
   dat,
   pairs = c(2, 3),
+  method = "pdp",
+  background_n = 200,
+  rug = TRUE,
   plot_type = "heatmap",
   type = "prob",
   response = "1",
   zlab = "Relative likelihood"
+)
+```
+
+For correlated covariates, a centred bivariate ALE surface is often more
+stable than a PDP surface because it accumulates local differences only where
+the data are observed.
+
+```{r, eval = species_example, fig.width=5.6, fig.height=4, message = FALSE, warning = FALSE}
+curves::bivariate(
+  rf_model,
+  dat,
+  pairs = c(2, 3),
+  method = "ale",
+  n = 12,
+  plot_type = "heatmap",
+  type = "prob",
+  response = "1",
+  zlab = "ALE"
 )
 ```
 

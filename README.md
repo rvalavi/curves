@@ -20,8 +20,8 @@ The current API is centred around three exported functions:
 
 - `univariate()` for one-predictor response curves with
   `method = "profile"`, `"pdp"`, `"ice"`, `"ice+pdp"`, or `"ale"`.
-- `bivariate()` for two-predictor response surfaces as static heatmaps,
-  filled contours, or interactive 3D `plotly` surfaces.
+- `bivariate()` for two-predictor profile, PDP, or ALE surfaces as static
+  heatmaps, filled contours, or interactive 3D `plotly` surfaces.
 - `multimodel()` for averaged univariate curves across multiple fitted
   models, with an optional standard deviation ribbon.
 
@@ -30,8 +30,8 @@ A few practical details are worth calling out:
 - Predictor inputs can be ordinary data frames or `terra::SpatRaster`
   objects.
 - Numeric and factor predictors are supported. For `method = "ale"`, factor
-  predictors are currently ignored with a warning and only numeric predictors
-  are plotted.
+  predictors or predictor pairs are currently ignored with a warning and only
+  numeric effects are plotted.
 - If `predict()` returns multiple columns, `response` can be used to choose
   the column to plot.
 - Static plots return `ggplot2` objects, so they can be styled or combined in
@@ -85,6 +85,9 @@ bivariate(
   model,
   predictors,
   pairs = c("Sepal.Width", "Petal.Length"),
+  method = "pdp",
+  background_n = 50,
+  rug = TRUE,
   plot_type = "heatmap"
 )
 ```
@@ -104,7 +107,7 @@ built around a down-sampled random forest classifier. It demonstrates:
 
 - class-probability plots with `response = "1"`
 - profile, PDP, ICE, and ALE workflows through `univariate()`
-- a bivariate heatmap and optional 3D surface
+- bivariate profile, PDP, and ALE surfaces with an optional 3D surface
 
 You can open it after installation with:
 

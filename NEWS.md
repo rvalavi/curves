@@ -19,6 +19,8 @@
   `SpatRaster`.
 - Added `bivariate()` for bivariate response surfaces with static heatmap and
   contour views.
+- Extended `bivariate()` with `method = "pdp"` and `method = "ale"`, plus
+  optional marginal rugs for numeric predictor pairs in static plots.
 - Added optional interactive 3D response surfaces for numeric predictor pairs
   when `plotly` is installed.
 - Added support for selecting predictor pairs by column name or column index.
