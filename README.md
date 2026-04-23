@@ -68,7 +68,14 @@ predictors <- iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")]
 univariate(model, predictors)
 
 # Partial dependence curves
-univariate(model, predictors, method = "pdp", n = 50, background_n = 200)
+univariate(
+  model,
+  predictors,
+  method = "pdp",
+  n = 50,
+  background_n = 200,
+  pdp_band = 0.8
+)
 
 # Accumulated local effects curves
 univariate(model, predictors, method = "ale", n = 40)

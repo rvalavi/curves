@@ -12,6 +12,8 @@
 - Split `univariate()` and `interactive_map_curves()` sampling controls so `n`
   sets numeric grid resolution while `background_n` sets the number of
   randomly sampled background rows used for PDP/ICE.
+- Added `pdp_band` to `univariate()` and `interactive_map_curves()` so
+  `method = "pdp"` can draw central quantile ribbons for numeric predictors.
 - Added adaptive raster sampling for `univariate()` so PDP/ICE methods can draw
   more background predictor combinations when `predict_data` comes from a
   `SpatRaster`.

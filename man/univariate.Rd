@@ -12,6 +12,7 @@ univariate(
   ...,
   n = 100,
   background_n = n,
+  pdp_band = NULL,
   ylab = "Prediction",
   rug = TRUE,
   ylim = NULL,
@@ -42,6 +43,10 @@ intervals used to estimate local effects for numeric predictors.}
 
 \item{background_n}{Integer, number of randomly sampled background rows used
 for \code{"pdp"}, \code{"ice"}, and \code{"ice+pdp"} (default: \code{n}).}
+
+\item{pdp_band}{Optional numeric in \code{(0, 1)} giving the central quantile
+width used to draw a PDP ribbon for numeric predictors. Only supported when
+\code{method = "pdp"}.}
 
 \item{ylab}{Character, label for the y-axis (default: \code{"Prediction"}).}
 
@@ -86,6 +91,16 @@ response_plot <- univariate(
   x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")]
 )
 print(response_plot)
+
+pdp_plot <- univariate(
+  model,
+  x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
+  method = "pdp",
+  n = 25,
+  background_n = 50,
+  pdp_band = 0.8
+)
+print(pdp_plot)
 
 ice_plot <- univariate(
   model,

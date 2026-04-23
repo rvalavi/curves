@@ -129,6 +129,15 @@ test_that("ice helpers use sampled predictor rows and average correctly", {
 
     summary_df <- curves:::average_curve_table(curves_df)
     expect_equal(summary_df$y, c(0, 5) + mean(sampled$x2))
+
+    band_df <- curves:::average_curve_table(curves_df, band = 0.5)
+    expected_bounds <- stats::quantile(
+        sampled$x2,
+        probs = c(0.25, 0.75),
+        names = FALSE
+    )
+    expect_equal(band_df$ymin, c(0, 5) + expected_bounds[1])
+    expect_equal(band_df$ymax, c(0, 5) + expected_bounds[2])
 })
 
 
@@ -145,6 +154,7 @@ test_that("interactive curve helpers separate grid and background counts", {
         fun = function(model, newdata) newdata$x1 + newdata$x2,
         n = 3,
         background_n = 4,
+        pdp_band = NULL,
         ylab = "Prediction",
         rug = FALSE,
         ylim = NULL,
@@ -158,6 +168,34 @@ test_that("interactive curve helpers separate grid and background counts", {
     table <- curve_data$tables$x1
     expect_equal(length(unique(table$curves$x)), 3)
     expect_equal(length(unique(table$curves$curve)), 4)
+})
+
+
+test_that("interactive curve helpers add a PDP band only for pdp", {
+    x_df <- data.frame(
+        x1 = 1:10,
+        x2 = seq(10, 100, by = 10)
+    )
+
+    set.seed(789)
+    curve_data <- curves:::prepare_interactive_curve_data(
+        model = NULL,
+        x_source = x_df,
+        fun = function(model, newdata) newdata$x1 + newdata$x2,
+        n = 4,
+        background_n = 5,
+        pdp_band = 0.8,
+        ylab = "Prediction",
+        rug = FALSE,
+        ylim = NULL,
+        color = "black",
+        response = NULL,
+        nrows = NULL,
+        ncols = 1,
+        method = "pdp"
+    )
+
+    expect_true(all(c("ymin", "ymax") %in% names(curve_data$tables$x1$curves)))
 })
 
 
@@ -248,6 +286,57 @@ test_that("ordered factor summaries still use connecting lines", {
 
     geom_classes <- vapply(plot$layers, function(layer) class(layer$geom)[1], character(1))
     expect_true("GeomLine" %in% geom_classes)
+})
+
+
+test_that("numeric curves draw a ribbon when ymin and ymax are supplied", {
+    plot <- curves:::plot_1D(
+        df = data.frame(
+            x = c(1, 2),
+            y = c(3, 4),
+            ymin = c(2, 3),
+            ymax = c(4, 5)
+        ),
+        dat = NULL,
+        fact = FALSE,
+        rug = FALSE,
+        se = FALSE,
+        x_name = "x",
+        y_name = "y",
+        ylim = c(1, 6),
+        color = "black"
+    )
+
+    geom_classes <- vapply(plot$layers, function(layer) class(layer$geom)[1], character(1))
+    expect_true("GeomRibbon" %in% geom_classes)
+})
+
+
+test_that("pdp_band is only accepted for pdp and valid quantile widths", {
+    model <- lm(
+        Sepal.Length ~ Sepal.Width + Petal.Length + Petal.Width,
+        data = iris
+    )
+
+    expect_error(
+        univariate(
+            model,
+            x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
+            method = "ice",
+            pdp_band = 0.8
+        ),
+        "only supported when method = \"pdp\""
+    )
+
+    expect_error(
+        univariate(
+            model,
+            x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
+            method = "pdp",
+            pdp_band = NA_real_
+        ),
+        "single number between 0 and 1"
+    )
 })
 
 

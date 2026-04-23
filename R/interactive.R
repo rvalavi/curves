@@ -20,6 +20,9 @@
 #'   intervals used to estimate local effects for numeric predictors.
 #' @param background_n Integer, number of randomly sampled background rows used
 #'   for `"pdp"`, `"ice"`, and `"ice+pdp"` (default: `n`).
+#' @param pdp_band Optional numeric in `(0, 1)` giving the central quantile
+#'   width used to draw a PDP ribbon for numeric predictors. Only supported
+#'   when `method = "pdp"`.
 #' @param ylab Character, label for the response scale (default:
 #'   `"Prediction"`).
 #' @param rug Logical, whether to include rug marks for numeric predictors
@@ -93,6 +96,7 @@ interactive_map_curves <- function(model, map, predictors,
                                    fun = stats::predict, ...,
                                    n = 100,
                                    background_n = n,
+                                   pdp_band = NULL,
                                    ylab = "Prediction",
                                    rug = TRUE,
                                    ylim = NULL,
@@ -142,6 +146,7 @@ interactive_map_curves <- function(model, map, predictors,
         fun = fun,
         n = n,
         background_n = background_n,
+        pdp_band = pdp_band,
         ylab = ylab,
         rug = rug,
         ylim = ylim,
@@ -345,10 +350,12 @@ validate_interactive_map_inputs <- function(map, predictors) {
 
 
 prepare_interactive_curve_data <- function(model, x_source, fun, ...,
-                                           n, background_n, ylab, rug, ylim, color,
+                                           n, background_n, pdp_band,
+                                           ylab, rug, ylim, color,
                                            response, nrows, ncols, method) {
     n <- validate_curve_n(n)
     background_n <- validate_background_n(background_n)
+    pdp_band <- validate_pdp_band(pdp_band, method = method)
 
     sample_size <- curve_sample_size(
         x_source,
@@ -457,7 +464,10 @@ prepare_interactive_curve_data <- function(model, x_source, fun, ...,
         )
 
         summary_df <- if (method %in% c("pdp", "ice+pdp")) {
-            average_curve_table(curve_df)
+            average_curve_table(
+                curve_df,
+                band = if (method == "pdp" && !spec$is_factor) pdp_band else NULL
+            )
         } else {
             NULL
         }
@@ -473,9 +483,15 @@ prepare_interactive_curve_data <- function(model, x_source, fun, ...,
     limits <- if (is.null(ylim)) {
         curve_limits(unlist(lapply(tables, function(table) {
             values <- table$curves$y
+            if (all(c("ymin", "ymax") %in% names(table$curves))) {
+                values <- c(values, table$curves$ymin, table$curves$ymax)
+            }
 
             if (!is.null(table$summary)) {
                 values <- c(values, table$summary$y)
+                if (all(c("ymin", "ymax") %in% names(table$summary))) {
+                    values <- c(values, table$summary$ymin, table$summary$ymax)
+                }
             }
 
             values

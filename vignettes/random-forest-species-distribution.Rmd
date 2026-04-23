@@ -106,7 +106,8 @@ plots. `method = "pdp"` averages over sampled predictor combinations from
 `dat`, whereas `method = "ice+pdp"` overlays that average on top of the
 sampled ICE curves. Here `n = 30` controls the grid resolution for numeric
 predictors, while `background_n` controls how many background rows are
-randomly sampled for PDP/ICE.
+randomly sampled for PDP/ICE. For `method = "pdp"`, `pdp_band` can be used to
+show a central quantile band around the averaged curve.
 
 ```{r, eval = species_example, fig.height=8, message = FALSE, warning = FALSE}
 curves::univariate(
@@ -115,6 +116,7 @@ curves::univariate(
   method = "pdp",
   n = 100,
   background_n = 200,
+  pdp_band = 0.8,
   type = "prob",
   response = "1",
   ylab = "Relative likelihood"

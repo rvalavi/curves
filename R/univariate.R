@@ -16,7 +16,9 @@
 #'   intervals used to estimate local effects for numeric predictors.
 #' @param background_n Integer, number of randomly sampled background rows used
 #'   for `"pdp"`, `"ice"`, and `"ice+pdp"` (default: `n`).
-#' @param ylab Character, label for the y-axis (default: `"Prediction"`).
+#' @param pdp_band Optional numeric in `(0, 1)` giving the central quantile
+#'   width used to draw a PDP ribbon for numeric predictors. Only supported
+#'   when `method = "pdp"`.
 #' @param nrows Integer, number of rows in the plot grid. If `NULL`, it is
 #'   automatically determined.
 #' @param ncols Integer, number of columns in the plot grid. If `NULL`, it is
@@ -25,6 +27,7 @@
 #'   `TRUE`).
 #' @param ylim Numeric vector of length 2, specifying the limits of the y-axis.
 #'   If `NULL`, limits are automatically set.
+#' @param ylab Character, label for the y-axis (default: `"Prediction"`).
 #' @param color Character, colour of the response curve (default:
 #'   `"deepskyblue4"`).
 #' @param response Optional column name or index to select when `fun` returns
@@ -50,6 +53,16 @@
 #' )
 #' print(response_plot)
 #'
+#' pdp_plot <- univariate(
+#'   model,
+#'   x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
+#'   method = "pdp",
+#'   n = 25,
+#'   background_n = 50,
+#'   pdp_band = 0.8
+#' )
+#' print(pdp_plot)
+#'
 #' ice_plot <- univariate(
 #'   model,
 #'   x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")],
@@ -71,9 +84,10 @@ univariate <- function(model, x = NULL,
                        fun = stats::predict, ...,
                        n = 100,
                        background_n = n,
-                       ylab = "Prediction",
+                       pdp_band = NULL,
                        rug = TRUE,
                        ylim = NULL,
+                       ylab = "Prediction",
                        color = "deepskyblue4",
                        response = NULL,
                        nrows = NULL,
@@ -83,6 +97,7 @@ univariate <- function(model, x = NULL,
     method <- match.arg(method)
     n <- validate_curve_n(n)
     background_n <- validate_background_n(background_n)
+    pdp_band <- validate_pdp_band(pdp_band, method = method)
 
     if (is.null(predict_data)) {
         if (is.null(x)) {
@@ -188,7 +203,10 @@ univariate <- function(model, x = NULL,
         )
 
         summary_df <- if (method %in% c("pdp", "ice+pdp")) {
-            average_curve_table(curve_df)
+            average_curve_table(
+                curve_df,
+                band = if (method == "pdp" && !spec$is_factor) pdp_band else NULL
+            )
         } else {
             NULL
         }
@@ -203,9 +221,15 @@ univariate <- function(model, x = NULL,
     limits <- if (is.null(ylim)) {
         curve_limits(unlist(lapply(tables, function(table) {
             values <- table$curves$y
+            if (all(c("ymin", "ymax") %in% names(table$curves))) {
+                values <- c(values, table$curves$ymin, table$curves$ymax)
+            }
 
             if (!is.null(table$summary)) {
                 values <- c(values, table$summary$y)
+                if (all(c("ymin", "ymax") %in% names(table$summary))) {
+                    values <- c(values, table$summary$ymin, table$summary$ymax)
+                }
             }
 
             values
@@ -358,9 +382,27 @@ ale_breaks <- function(x, n) {
 }
 
 
-average_curve_table <- function(df) {
+average_curve_table <- function(df, band = NULL) {
     summary <- stats::aggregate(y ~ x, data = df[, c("x", "y"), drop = FALSE],
                                 FUN = mean)
+
+    if (!is.null(band)) {
+        probs <- c((1 - band) / 2, 1 - ((1 - band) / 2))
+        bounds <- stats::aggregate(
+            y ~ x,
+            data = df[, c("x", "y"), drop = FALSE],
+            FUN = function(values) {
+                stats::quantile(values, probs = probs, names = FALSE)
+            }
+        )
+        bounds_mat <- if (is.matrix(bounds$y)) {
+            bounds$y
+        } else {
+            do.call(rbind, bounds$y)
+        }
+        summary$ymin <- bounds_mat[, 1]
+        summary$ymax <- bounds_mat[, 2]
+    }
 
     if (is.factor(df$x)) {
         summary$x <- factor(
@@ -396,7 +438,15 @@ plot_1D <- function(df, dat, fact, ordered_factor = FALSE, rug, se,
 
     plt <- ggplot2::ggplot(df, ggplot2::aes(x = x, y = y))
 
-    if (ncol(df) > 2L && !fact && se && !has_curve_groups) {
+    has_band <- !fact && !has_curve_groups && all(c("ymin", "ymax") %in% names(df))
+
+    if (has_band) {
+        plt <- plt + ggplot2::geom_ribbon(
+            ggplot2::aes(ymin = ymin, ymax = ymax),
+            fill = ribcol,
+            alpha = 0.35
+        )
+    } else if (ncol(df) > 2L && !fact && se && !has_curve_groups) {
         plt <- plt + ggplot2::geom_ribbon(
             ggplot2::aes(ymin = y - std, ymax = y + std),
             fill = ribcol,
