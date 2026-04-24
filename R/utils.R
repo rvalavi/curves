@@ -99,24 +99,6 @@ validate_background_n <- function(n) {
 }
 
 
-validate_pdp_band <- function(pdp_band, method) {
-    if (is.null(pdp_band)) {
-        return(NULL)
-    }
-
-    if (method != "pdp") {
-        stop("pdp_band is only supported when method = \"pdp\"")
-    }
-
-    if (!is.numeric(pdp_band) || length(pdp_band) != 1L || is.na(pdp_band) ||
-        !is.finite(pdp_band) || pdp_band <= 0 || pdp_band >= 1) {
-        stop("pdp_band must be NULL or a single number between 0 and 1")
-    }
-
-    as.numeric(pdp_band)
-}
-
-
 validate_interval_level <- function(interval_level) {
     if (!is.numeric(interval_level) || length(interval_level) != 1L ||
         is.na(interval_level) || !is.finite(interval_level) ||

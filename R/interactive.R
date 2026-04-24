@@ -20,9 +20,11 @@
 #'   intervals used to estimate local effects for numeric predictors.
 #' @param background_n Integer, number of randomly sampled background rows used
 #'   for `"pdp"`, `"ice"`, and `"ice+pdp"` (default: `n`).
-#' @param pdp_band Optional numeric in `(0, 1)` giving the central quantile
-#'   width used to draw a PDP ribbon for numeric predictors. Only supported
-#'   when `method = "pdp"`.
+#' @param interval Character, interval type used to draw a PDP ribbon for
+#'   numeric predictors. Only `"quantile"` is currently supported and only when
+#'   `method = "pdp"`. Defaults to `"none"`.
+#' @param interval_level Numeric in `(0, 1)` giving the central quantile width
+#'   used when `interval = "quantile"`. Ignored otherwise.
 #' @param ylab Character, label for the response scale (default:
 #'   `"Prediction"`).
 #' @param rug Logical, whether to include rug marks for numeric predictors
@@ -36,7 +38,7 @@
 #' @param nrows Integer, number of rows in the response-curve grid. If `NULL`,
 #'   it is computed automatically.
 #' @param ncols Integer, number of columns in the response-curve grid. Defaults
-#'   to `1` for a stacked right-hand panel layout.
+#'   to `2` so the response-curve panel stays closer to the map height.
 #' @param method Character, the curve type to plot. `"profile"` uses a single
 #'   reference profile, `"pdp"` averages over sampled predictor rows,
 #'   `"ice"` draws individual conditional expectation curves, `"ice+pdp"`
@@ -48,8 +50,6 @@
 #'   map.
 #' @param map_title Character, title shown above the map.
 #' @param launch Logical, whether to launch the Shiny app immediately.
-#' @param launch.browser Logical, forwarded to `shiny::runApp()` when
-#'   `launch = TRUE`.
 #'
 #' @return A `shiny.appobj` object. If `launch = TRUE`, the app is also run and
 #'   returned invisibly after it closes.
@@ -89,21 +89,22 @@
 #'     predictors = r,
 #'     launch = FALSE
 #'   )
-#'   app
+#'   invisible(app)
 #' }
 interactive_map_curves <- function(model, map, predictors,
                                    predict_data = NULL,
                                    fun = stats::predict, ...,
                                    n = 100,
                                    background_n = n,
-                                   pdp_band = NULL,
+                                   interval = c("none", "quantile"),
+                                   interval_level = 0.8,
                                    ylab = "Prediction",
                                    rug = TRUE,
                                    ylim = NULL,
-                                   color = "tomato3",
+                                   color = "#ff5a36",
                                    response = NULL,
                                    nrows = NULL,
-                                   ncols = 1,
+                                   ncols = 2,
                                    method = c(
                                        "profile",
                                        "pdp",
@@ -118,10 +119,19 @@ interactive_map_curves <- function(model, map, predictors,
                                        rev = TRUE
                                    ),
                                    map_title = "Prediction map",
-                                   launch = interactive(),
-                                   launch.browser = interactive()) {
+                                   launch = interactive()) {
 
     method <- match.arg(method)
+    interval <- match.arg(interval)
+    map_height <- 780L
+
+    if (interval != "none" && method != "pdp") {
+        stop("interval is only supported when method = \"pdp\"")
+    }
+
+    if (interval == "quantile") {
+        interval_level <- validate_interval_level(interval_level)
+    }
 
     if (!requireNamespace("shiny", quietly = TRUE)) {
         stop(
@@ -146,7 +156,8 @@ interactive_map_curves <- function(model, map, predictors,
         fun = fun,
         n = n,
         background_n = background_n,
-        pdp_band = pdp_band,
+        interval = interval,
+        interval_level = interval_level,
         ylab = ylab,
         rug = rug,
         ylim = ylim,
@@ -169,7 +180,13 @@ interactive_map_curves <- function(model, map, predictors,
         )
     }
 
-    curve_height <- interactive_curve_plot_height(curve_data$nrows)
+    curve_height <- interactive_curve_plot_height(
+        map_height = map_height
+    )
+    curve_style <- interactive_curve_style(
+        nrows = curve_data$nrows,
+        map_height = map_height
+    )
 
     ui <- shiny::fluidPage(
         shiny::tags$head(
@@ -185,7 +202,7 @@ interactive_map_curves <- function(model, map, predictors,
                     background: #f4f4f4;
                     border: 1px solid #d7d7d7;
                     border-radius: 6px;
-                    margin-bottom: 12px;
+                    margin-top: 12px;
                     padding: 10px 12px;
                 }
                 .curves-info-title {
@@ -200,18 +217,18 @@ interactive_map_curves <- function(model, map, predictors,
         ),
         shiny::fluidRow(
             shiny::column(
-                width = 8,
+                width = 7,
                 class = "curves-map-panel",
                 shiny::plotOutput(
                     "curves_map",
                     click = "curves_map_click",
-                    height = "780px"
-                )
+                    height = sprintf("%spx", map_height)
+                ),
+                shiny::uiOutput("curves_selection_info")
             ),
             shiny::column(
-                width = 4,
+                width = 5,
                 class = "curves-side-panel",
-                shiny::uiOutput("curves_selection_info"),
                 shiny::plotOutput(
                     "curves_plot",
                     height = sprintf("%spx", curve_height)
@@ -284,7 +301,11 @@ interactive_map_curves <- function(model, map, predictors,
                     summary_linewidth = 1
                 )
 
-                plt <- style_interactive_curve_plot(plt, spec$name)
+                plt <- style_interactive_curve_plot(
+                    plt,
+                    title = spec$name,
+                    style = curve_style
+                )
                 add_selected_site_marker(
                     plot = plt,
                     spec = spec,
@@ -305,7 +326,7 @@ interactive_map_curves <- function(model, map, predictors,
     app <- shiny::shinyApp(ui = ui, server = server)
 
     if (launch) {
-        shiny::runApp(app, launch.browser = launch.browser)
+        shiny::runApp(app)
         return(invisible(app))
     }
 
@@ -350,12 +371,12 @@ validate_interactive_map_inputs <- function(map, predictors) {
 
 
 prepare_interactive_curve_data <- function(model, x_source, fun, ...,
-                                           n, background_n, pdp_band,
+                                           n, background_n, interval,
+                                           interval_level,
                                            ylab, rug, ylim, color,
                                            response, nrows, ncols, method) {
     n <- validate_curve_n(n)
     background_n <- validate_background_n(background_n)
-    pdp_band <- validate_pdp_band(pdp_band, method = method)
 
     sample_size <- curve_sample_size(
         x_source,
@@ -409,7 +430,7 @@ prepare_interactive_curve_data <- function(model, x_source, fun, ...,
     nvars <- length(predictor_specs)
 
     if (is.null(ncols)) {
-        ncols <- 1L
+        ncols <- min(2L, max(1L, nvars))
     }
     if (!is.numeric(ncols) || length(ncols) != 1L || is.na(ncols) || ncols < 1) {
         stop("ncols must be a single positive integer")
@@ -466,7 +487,13 @@ prepare_interactive_curve_data <- function(model, x_source, fun, ...,
         summary_df <- if (method %in% c("pdp", "ice+pdp")) {
             average_curve_table(
                 curve_df,
-                band = if (method == "pdp" && !spec$is_factor) pdp_band else NULL
+                band = if (method == "pdp" &&
+                    !spec$is_factor &&
+                    interval == "quantile") {
+                    interval_level
+                } else {
+                    NULL
+                }
             )
         } else {
             NULL
@@ -515,8 +542,19 @@ prepare_interactive_curve_data <- function(model, x_source, fun, ...,
 }
 
 
-interactive_curve_plot_height <- function(nrows) {
-    as.integer(max(520L, 190L * nrows))
+interactive_curve_plot_height <- function(map_height) {
+    as.integer(map_height)
+}
+
+
+interactive_curve_style <- function(nrows, map_height) {
+    panel_height <- map_height / max(1L, nrows)
+
+    list(
+        title_size = max(8, min(11, panel_height / 16)),
+        axis_text_size = max(6.5, min(10, panel_height / 22)),
+        margin = if (panel_height < 150) 2 else 4
+    )
 }
 
 
@@ -628,18 +666,24 @@ build_selection_info <- function(selection, ylab) {
 }
 
 
-style_interactive_curve_plot <- function(plot, title) {
+style_interactive_curve_plot <- function(plot, title, style) {
     plot +
         ggplot2::labs(title = title, x = NULL, y = NULL) +
         ggplot2::theme(
             plot.title = ggplot2::element_text(
                 hjust = 0.5,
                 face = "bold",
-                size = 11
+                size = style$title_size
             ),
             axis.title = ggplot2::element_blank(),
+            axis.text = ggplot2::element_text(size = style$axis_text_size),
             panel.grid.minor = ggplot2::element_blank(),
-            plot.margin = ggplot2::margin(4, 6, 4, 6)
+            plot.margin = ggplot2::margin(
+                style$margin,
+                style$margin + 2,
+                style$margin,
+                style$margin + 2
+            )
         )
 }
 

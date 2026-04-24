@@ -116,3 +116,58 @@ test_that("interactive_map_curves checks predictor layers against plotted variab
         "Missing layers: x2"
     )
 })
+
+
+test_that("interactive_map_curves uses the same interval interface as univariate", {
+    skip_if_not_installed("terra")
+    skip_if_not_installed("shiny")
+
+    r <- terra::rast(
+        ncols = 8,
+        nrows = 8,
+        nlyrs = 2,
+        xmin = 0,
+        xmax = 1,
+        ymin = 0,
+        ymax = 1
+    )
+    values <- cbind(
+        rep(seq(0, 1, length.out = 8), each = 8),
+        rep(seq(0, 1, length.out = 8), times = 8)
+    )
+    terra::values(r) <- values
+    names(r) <- c("x1", "x2")
+
+    dat <- terra::as.data.frame(r)
+    dat$y <- dat$x1 + dat$x2
+    model <- lm(y ~ x1 + x2, data = dat)
+
+    pred_map <- r[[1]]
+    terra::values(pred_map) <- dat$y
+    names(pred_map) <- "prediction"
+
+    expect_s3_class(
+        interactive_map_curves(
+            model,
+            map = pred_map,
+            predictors = r,
+            method = "pdp",
+            interval = "quantile",
+            interval_level = 0.8,
+            launch = FALSE
+        ),
+        "shiny.appobj"
+    )
+
+    expect_error(
+        interactive_map_curves(
+            model,
+            map = pred_map,
+            predictors = r,
+            method = "ice",
+            interval = "quantile",
+            launch = FALSE
+        ),
+        "only supported when method = \"pdp\""
+    )
+})

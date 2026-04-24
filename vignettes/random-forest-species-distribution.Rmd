@@ -51,12 +51,6 @@ covars <- c(
 training <- training[, c("occ", covars)]
 training$vegsys <- as.factor(training$vegsys)
 
-for (v in covars[covars != "vegsys"]) {
-  meanv <- mean(training[[v]])
-  sdv <- stats::sd(training[[v]])
-  training[[v]] <- (training[[v]] - meanv) / sdv
-}
-
 head(training[, 1:5])
 ```
 

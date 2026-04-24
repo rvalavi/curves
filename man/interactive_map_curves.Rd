@@ -13,20 +13,20 @@ interactive_map_curves(
   ...,
   n = 100,
   background_n = n,
-  pdp_band = NULL,
+  interval = c("none", "quantile"),
+  interval_level = 0.8,
   ylab = "Prediction",
   rug = TRUE,
   ylim = NULL,
-  color = "tomato3",
+  color = "#ff5a36",
   response = NULL,
   nrows = NULL,
-  ncols = 1,
+  ncols = 2,
   method = c("profile", "pdp", "ice", "ice+pdp", "ale"),
   selected_color = "deepskyblue3",
   map_palette = grDevices::hcl.colors(64, "Spectral", rev = TRUE),
   map_title = "Prediction map",
-  launch = interactive(),
-  launch.browser = interactive()
+  launch = interactive()
 )
 }
 \arguments{
@@ -53,9 +53,12 @@ intervals used to estimate local effects for numeric predictors.}
 \item{background_n}{Integer, number of randomly sampled background rows used
 for \code{"pdp"}, \code{"ice"}, and \code{"ice+pdp"} (default: \code{n}).}
 
-\item{pdp_band}{Optional numeric in \code{(0, 1)} giving the central quantile
-width used to draw a PDP ribbon for numeric predictors. Only supported when
-\code{method = "pdp"}.}
+\item{interval}{Character, interval type used to draw a PDP ribbon for
+numeric predictors. Only \code{"quantile"} is currently supported and only when
+\code{method = "pdp"}. Defaults to \code{"none"}.}
+
+\item{interval_level}{Numeric in \verb{(0, 1)} giving the central quantile width
+used when \code{interval = "quantile"}. Ignored otherwise.}
 
 \item{ylab}{Character, label for the response scale (default:
 \code{"Prediction"}).}
@@ -76,7 +79,7 @@ are returned, the second column is used.}
 it is computed automatically.}
 
 \item{ncols}{Integer, number of columns in the response-curve grid. Defaults
-to \code{1} for a stacked right-hand panel layout.}
+to \code{2} so the response-curve panel stays closer to the map height.}
 
 \item{method}{Character, the curve type to plot. \code{"profile"} uses a single
 reference profile, \code{"pdp"} averages over sampled predictor rows,
@@ -93,9 +96,6 @@ map.}
 \item{map_title}{Character, title shown above the map.}
 
 \item{launch}{Logical, whether to launch the Shiny app immediately.}
-
-\item{launch.browser}{Logical, forwarded to \code{shiny::runApp()} when
-\code{launch = TRUE}.}
 }
 \value{
 A \code{shiny.appobj} object. If \code{launch = TRUE}, the app is also run and
@@ -140,6 +140,6 @@ if (requireNamespace("terra", quietly = TRUE) &&
     predictors = r,
     launch = FALSE
   )
-  app
+  invisible(app)
 }
 }
