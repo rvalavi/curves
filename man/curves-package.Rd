@@ -7,11 +7,17 @@
 \title{curves: Generating Response Curves From Any Fitted Model}
 \description{
 \if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
-
-Create univariate and bivariate response curves for fitted models and compare averaged response curves across multiple fitted models using ggplot2.
+\code{curves} provides model-agnostic plots for inspecting fitted prediction
+functions. It supports univariate profile, PDP, ICE, and ALE curves,
+bivariate profile, PDP, and second-order ALE surfaces, ensemble curve
+aggregation across multiple fitted models, and an interactive map-linked
+curve explorer.
 }
 \references{
 Valavi, R. (2025) curves: an R package for response curve plotting.
+
+Molnar, C. (2025). \emph{Interpretable Machine Learning: A Guide for Making Black
+Box Models Explainable} (3rd ed.). \url{https://christophm.github.io/interpretable-ml-book/}
 }
 \seealso{
 \code{\link[=univariate]{univariate()}}, \code{\link[=bivariate]{bivariate()}}, \code{\link[=multimodel]{multimodel()}}

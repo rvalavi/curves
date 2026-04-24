@@ -2,7 +2,7 @@
 % Please edit documentation in R/multimodel.R
 \name{multimodel}
 \alias{multimodel}
-\title{Creating a multimodel response curve plot}
+\title{Ensemble response curves across fitted models}
 \usage{
 multimodel(
   models,
@@ -28,7 +28,9 @@ multimodel(
 )
 }
 \arguments{
-\item{models}{A list object of fitted models that support prediction.}
+\item{models}{A list of fitted ensemble member models that support
+prediction. Models should be fitted to compatible predictor variables and
+return predictions on the same response scale.}
 
 \item{x}{A data frame or raster containing predictor variables. If
 \code{predict_data} is provided, this argument is ignored.}
@@ -45,7 +47,7 @@ model-specific wrappers through \code{fun}.}
 
 \item{method}{Character, the curve type to plot. \code{"profile"} uses a single
 reference profile, \code{"pdp"} averages over sampled predictor rows before
-aggregating across models, and \code{"ale"} draws accumulated local effects
+combining ensemble members, and \code{"ale"} draws accumulated local effects
 curves for numeric predictors and ignores factor predictors with a warning.}
 
 \item{n}{Integer, number of points to sample for each numeric predictor
@@ -55,13 +57,13 @@ intervals used to estimate local effects for numeric predictors.}
 \item{background_n}{Integer, number of randomly sampled background rows used
 for \code{"pdp"} (default: \code{n}).}
 
-\item{agg}{Function used to aggregate model-specific predictions at each
-point along the curve. Defaults to \code{mean}.}
+\item{agg}{Function used to combine model-specific predictions at each point
+along the curve. Defaults to \code{mean}.}
 
 \item{weights}{Optional numeric vector of model weights with the same length
 as \code{models}.}
 
-\item{interval}{Character, interval type drawn around the aggregated curve.
+\item{interval}{Character, interval type drawn around the ensemble curve.
 \code{"sd"} draws a standard deviation ribbon, \code{"quantile"} draws a central
 quantile ribbon using \code{interval_level}, and \code{"none"} disables the ribbon.}
 
@@ -89,26 +91,78 @@ automatically determined.}
 \item{ncols}{Integer, number of columns in the plot grid. If \code{NULL}, it is
 automatically determined.}
 
-\item{show_models}{Logical, whether to overlay individual model curves
-beneath the aggregated curve (default: \code{FALSE}).}
+\item{show_models}{Logical, whether to overlay individual ensemble member
+curves beneath the ensemble curve (default: \code{FALSE}).}
 }
 \value{
 A \code{ggplot2} object containing the response curves arranged in a grid.
 }
 \description{
-This function generates profile, partial dependence, or ALE response curves
-for several models by varying one predictor at a time and aggregating the
-fitted curves across models.
+Plot profile, partial dependence, or accumulated local effects curves for
+several fitted models on a common predictor grid, then combine the
+model-specific curves into an ensemble curve.
+}
+\details{
+\code{multimodel()} is intended for ensemble modelling workflows, such as species
+distribution models where alternative algorithms or model specifications are
+fit to the same response and predictor set. Each ensemble member is first
+converted to the same one-dimensional curve type used by \code{\link[=univariate]{univariate()}}. For
+model \eqn{r}, write this curve as \eqn{h_r(z)}. The displayed ensemble
+curve is
+\deqn{H(z) = A\{h_1(z), \ldots, h_R(z)\},}
+where \eqn{A} is \code{agg}. With the default \code{agg = mean} and no weights, this is
+the arithmetic ensemble mean. If \code{weights} are supplied and \code{agg} is \code{mean},
+the package uses
+\deqn{H(z) = \frac{\sum_{r=1}^{R} w_r h_r(z)}
+               {\sum_{r=1}^{R} w_r}.}
+
+\code{method = "profile"} uses a single reference row,
+\eqn{\hat{f}_r(z, x_{-j}^{ref})}; \code{method = "pdp"} averages each model's
+predictions over sampled background rows,
+\deqn{h_r(z) = \frac{1}{m}\sum_{i=1}^{m}
+  \hat{f}_r(z, x_{-j}^{(i)});}
+and \code{method = "ale"} accumulates centred local prediction differences for
+numeric predictors. These definitions follow the model-agnostic PDP and ALE
+notation summarized by Molnar (2025).
+
+The default \code{interval = "sd"} draws \eqn{H(z) \pm s(z)}, using the ordinary
+standard deviation across model curves or, with weights,
+\deqn{s(z) = \sqrt{\frac{\sum_{r=1}^{R} w_r\{h_r(z) - H(z)\}^2}
+                        {\sum_{r=1}^{R} w_r}}.}
+\code{interval = "quantile"} instead draws central pointwise quantiles of the
+model-specific curve values.
 }
 \examples{
-data(iris)
-models <- list(
-  lm(Sepal.Length ~ Sepal.Width + Petal.Length, data = iris),
-  lm(Sepal.Length ~ Petal.Width + Petal.Length, data = iris)
-)
-response_plot <- multimodel(
-  models,
-  x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")]
-)
-print(response_plot)
+if (requireNamespace("mgcv", quietly = TRUE)) {
+  data(iris)
+  predictors <- iris[, c("Sepal.Width", "Petal.Length")]
+
+  models <- list(
+    lm(Sepal.Length ~ Sepal.Width + Petal.Length, data = iris),
+    mgcv::gam(
+      Sepal.Length ~ s(Sepal.Width) + s(Petal.Length),
+      data = iris
+    )
+  )
+
+  response_plot <- multimodel(
+    models,
+    predictors,
+    method = "pdp",
+    background_n = 50,
+    show_models = TRUE
+  )
+  print(response_plot)
+}
+}
+\references{
+Molnar, C. (2025). \emph{Interpretable Machine Learning: A Guide for Making Black
+Box Models Explainable} (3rd ed.). \url{https://christophm.github.io/interpretable-ml-book/}
+
+Friedman, J. H. (2001). Greedy function approximation: A gradient boosting
+machine. \emph{The Annals of Statistics}, 29(5), 1189-1232.
+
+Apley, D. W., & Zhu, J. (2020). Visualizing the effects of predictor
+variables in black box supervised learning models. \emph{Journal of the Royal
+Statistical Society: Series B}, 82(4), 1059-1086.
 }

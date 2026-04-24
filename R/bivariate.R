@@ -1,7 +1,38 @@
-#' Bivariate response surface plot
+#' Bivariate model-agnostic response surfaces
 #'
-#' This function generates bivariate response plots for a given model by
-#' varying two predictors at a time while keeping others constant.
+#' Plot how a fitted model's predictions change across pairs of predictors using
+#' reference-profile, partial dependence, or second-order accumulated local
+#' effects surfaces.
+#'
+#' @details
+#' Let \eqn{\hat{f}} denote the fitted prediction function, let
+#' \eqn{S = \{a, b\}} be the two plotted predictors, and let \eqn{x_C} contain
+#' the remaining predictors. The `"profile"` method evaluates a single
+#' reference profile over the two-dimensional grid,
+#' \deqn{g_S(z_a, z_b) = \hat{f}(z_a, z_b, x_C^{ref}).}
+#' This is a direct response surface around the mean/modal reference row.
+#'
+#' For `"pdp"`, the surface is the Monte Carlo partial dependence estimate over
+#' \eqn{m} sampled background rows,
+#' \deqn{\hat{f}_{S,PDP}(z_a, z_b) =
+#'   \frac{1}{m}\sum_{i=1}^{m}\hat{f}(z_a, z_b, x_C^{(i)}).}
+#' This marginalizes over the non-plotted predictors as described for PDPs by
+#' Molnar (2025). The result includes interactions with other predictors, but it
+#' may evaluate uncommon predictor combinations when predictors are dependent.
+#'
+#' For `"ale"`, both predictors must be numeric. The two features are divided
+#' into rectangular cells with x-breaks \eqn{z_0 < \cdots < z_K} and y-breaks
+#' \eqn{w_0 < \cdots < w_L}. For observations in cell \eqn{(k, l)}, the
+#' second-order local effect is the mean corner contrast
+#' \deqn{\Delta_{k,l} = \frac{1}{n_{k,l}}\sum_{i \in N(k,l)}
+#'   [\hat{f}(z_k, w_l, x_C^{(i)}) -
+#'    \hat{f}(z_{k-1}, w_l, x_C^{(i)}) -
+#'    \hat{f}(z_k, w_{l-1}, x_C^{(i)}) +
+#'    \hat{f}(z_{k-1}, w_{l-1}, x_C^{(i)})].}
+#' The cell effects are accumulated over the grid and centred by removing the
+#' row, column, and overall means. The resulting surface is a second-order ALE
+#' estimate: it is intended to show the additional interaction effect of the two
+#' predictors after their main effects have been removed.
 #'
 #' @param model A fitted model object that supports prediction.
 #' @param x A data frame or raster containing predictor variables. If
@@ -46,6 +77,17 @@
 #'
 #' @return A `ggplot2` object for static plot types or a `plotly` widget for
 #'   `plot_type = "surface"`.
+#'
+#' @references
+#' Molnar, C. (2025). *Interpretable Machine Learning: A Guide for Making Black
+#' Box Models Explainable* (3rd ed.). <https://christophm.github.io/interpretable-ml-book/>
+#'
+#' Friedman, J. H. (2001). Greedy function approximation: A gradient boosting
+#' machine. *The Annals of Statistics*, 29(5), 1189-1232.
+#'
+#' Apley, D. W., & Zhu, J. (2020). Visualizing the effects of predictor
+#' variables in black box supervised learning models. *Journal of the Royal
+#' Statistical Society: Series B*, 82(4), 1059-1086.
 #'
 #' @export
 #'

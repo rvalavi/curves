@@ -11,8 +11,8 @@ custom prediction function.
 
 <img src="man/figures/readme-univariate.png" alt="Partial dependence curves from the species distribution vignette" width="100%" />
 
-The figure above shows partial dependence curves from the included random
-forest species distribution vignette.
+The figure above shows partial dependence curves from the included species
+distribution vignette.
 
 ## Current package scope
 
@@ -22,8 +22,8 @@ The current API is centred around three exported functions:
   `method = "profile"`, `"pdp"`, `"ice"`, `"ice+pdp"`, or `"ale"`.
 - `bivariate()` for two-predictor profile, PDP, or ALE surfaces as static
   heatmaps, filled contours, or interactive 3D `plotly` surfaces.
-- `multimodel()` for aggregated profile, PDP, or ALE curves across multiple
-  fitted models, with optional interval ribbons and model overlays.
+- `multimodel()` for ensemble profile, PDP, or ALE curves across multiple
+  fitted models, with optional interval ribbons and member-model overlays.
 
 A few practical details are worth calling out:
 
@@ -36,6 +36,10 @@ A few practical details are worth calling out:
   the column to plot.
 - Static plots return `ggplot2` objects, so they can be styled or combined in
   downstream workflows.
+
+In short, profile curves use one reference row, PDP averages predictions over
+sampled rows, ICE keeps those row-level curves visible, and ALE accumulates
+local prediction differences within the observed predictor distribution.
 
 ## Installation
 
@@ -50,6 +54,7 @@ Optional packages:
 
 - `terra` for raster-backed predictor inputs.
 - `plotly` for interactive 3D surfaces.
+- `mgcv` for the GAM ensemble example below.
 - `randomForest` and `disdat` for the species distribution vignette.
 
 ## Quick start
@@ -73,9 +78,7 @@ univariate(
   predictors,
   method = "pdp",
   n = 50,
-  background_n = 200,
-  interval = "quantile",
-  interval_level = 0.8
+  background_n = 200
 )
 
 # Accumulated local effects curves
@@ -93,27 +96,27 @@ bivariate(
 )
 ```
 
-For model comparisons, pass a list of fitted models to `multimodel()`. If a
+For ensemble modelling, pass a list of fitted models to `multimodel()`. The
+ensemble members should be fitted to the same response and compatible
+predictors, and their predictions should be on the same response scale. If a
 set of models shares the same prediction interface, pass non-default
 prediction arguments through `...`. For mixed model types, supply `fun` as a
-list of wrappers, one per model, that return the same response scale before
-averaging. If a shared prediction function returns multiple prediction
-columns, either set `response` or provide a small wrapper through `fun`. Use
-`agg`, `weights`, `interval`, and `show_models` to control how the model
-curves are combined and displayed.
+list of wrappers, one per model. If a shared prediction function returns
+multiple prediction columns, either set `response` or provide a small wrapper
+through `fun`. Use `agg`, `weights`, `interval`, and `show_models` to control
+how the ensemble curves are combined and displayed.
 
 ```r
 models <- list(
   lm(Sepal.Length ~ Sepal.Width + Petal.Length, data = iris),
-  lm(Sepal.Length ~ Petal.Width + Petal.Length, data = iris)
+  mgcv::gam(Sepal.Length ~ s(Sepal.Width) + s(Petal.Length), data = iris)
 )
 
 multimodel(
   models,
-  predictors,
+  predictors[, c("Sepal.Width", "Petal.Length")],
   method = "pdp",
   background_n = 200,
-  interval = "quantile",
   show_models = TRUE
 )
 ```
@@ -134,4 +137,7 @@ You can open it after installation with:
 vignette("random-forest-species-distribution", package = "curves")
 ```
 
-<img src="man/figures/readme-bivariate.png" alt="Bivariate response heatmap from the species distribution vignette" width="70%" />
+<img src="man/figures/readme-bivariate.png" alt="Bivariate ALE surface from the species distribution vignette" width="70%" />
+
+The bivariate figure shows a centred ALE surface for two predictors from the
+same random forest example.

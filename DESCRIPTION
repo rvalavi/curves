@@ -12,7 +12,7 @@ Authors@R: c(
 Author: Roozbeh Valavi [aut, cre]
 Maintainer: Roozbeh Valavi <valavi.r@gmail.com>
 Description: Create univariate and bivariate response curves for fitted
-    models and compare averaged response curves across multiple fitted
+    models and build ensemble response curves across multiple fitted
     models using ggplot2.
 License: GPL-3 + file LICENSE
 Encoding: UTF-8
@@ -23,6 +23,7 @@ Imports:
   ggplot2 (>= 3.3.6)
 Suggests:
   knitr,
+  mgcv,
   plotly,
   rmarkdown,
   shiny,

@@ -1,10 +1,42 @@
-#' Creating a multimodel response curve plot
+#' Ensemble response curves across fitted models
 #'
-#' This function generates profile, partial dependence, or ALE response curves
-#' for several models by varying one predictor at a time and aggregating the
-#' fitted curves across models.
+#' Plot profile, partial dependence, or accumulated local effects curves for
+#' several fitted models on a common predictor grid, then combine the
+#' model-specific curves into an ensemble curve.
 #'
-#' @param models A list object of fitted models that support prediction.
+#' @details
+#' `multimodel()` is intended for ensemble modelling workflows, such as species
+#' distribution models where alternative algorithms or model specifications are
+#' fit to the same response and predictor set. Each ensemble member is first
+#' converted to the same one-dimensional curve type used by [univariate()]. For
+#' model \eqn{r}, write this curve as \eqn{h_r(z)}. The displayed ensemble
+#' curve is
+#' \deqn{H(z) = A\{h_1(z), \ldots, h_R(z)\},}
+#' where \eqn{A} is `agg`. With the default `agg = mean` and no weights, this is
+#' the arithmetic ensemble mean. If `weights` are supplied and `agg` is `mean`,
+#' the package uses
+#' \deqn{H(z) = \frac{\sum_{r=1}^{R} w_r h_r(z)}
+#'                {\sum_{r=1}^{R} w_r}.}
+#'
+#' `method = "profile"` uses a single reference row,
+#' \eqn{\hat{f}_r(z, x_{-j}^{ref})}; `method = "pdp"` averages each model's
+#' predictions over sampled background rows,
+#' \deqn{h_r(z) = \frac{1}{m}\sum_{i=1}^{m}
+#'   \hat{f}_r(z, x_{-j}^{(i)});}
+#' and `method = "ale"` accumulates centred local prediction differences for
+#' numeric predictors. These definitions follow the model-agnostic PDP and ALE
+#' notation summarized by Molnar (2025).
+#'
+#' The default `interval = "sd"` draws \eqn{H(z) \pm s(z)}, using the ordinary
+#' standard deviation across model curves or, with weights,
+#' \deqn{s(z) = \sqrt{\frac{\sum_{r=1}^{R} w_r\{h_r(z) - H(z)\}^2}
+#'                         {\sum_{r=1}^{R} w_r}}.}
+#' `interval = "quantile"` instead draws central pointwise quantiles of the
+#' model-specific curve values.
+#'
+#' @param models A list of fitted ensemble member models that support
+#'   prediction. Models should be fitted to compatible predictor variables and
+#'   return predictions on the same response scale.
 #' @param x A data frame or raster containing predictor variables. If
 #'   `predict_data` is provided, this argument is ignored.
 #' @param predict_data A data frame containing values at which predictions
@@ -16,18 +48,18 @@
 #'   model-specific wrappers through `fun`.
 #' @param method Character, the curve type to plot. `"profile"` uses a single
 #'   reference profile, `"pdp"` averages over sampled predictor rows before
-#'   aggregating across models, and `"ale"` draws accumulated local effects
+#'   combining ensemble members, and `"ale"` draws accumulated local effects
 #'   curves for numeric predictors and ignores factor predictors with a warning.
 #' @param n Integer, number of points to sample for each numeric predictor
 #'   variable (default: 100). For `"ale"`, `n` sets the maximum number of
 #'   intervals used to estimate local effects for numeric predictors.
 #' @param background_n Integer, number of randomly sampled background rows used
 #'   for `"pdp"` (default: `n`).
-#' @param agg Function used to aggregate model-specific predictions at each
-#'   point along the curve. Defaults to `mean`.
+#' @param agg Function used to combine model-specific predictions at each point
+#'   along the curve. Defaults to `mean`.
 #' @param weights Optional numeric vector of model weights with the same length
 #'   as `models`.
-#' @param interval Character, interval type drawn around the aggregated curve.
+#' @param interval Character, interval type drawn around the ensemble curve.
 #'   `"sd"` draws a standard deviation ribbon, `"quantile"` draws a central
 #'   quantile ribbon using `interval_level`, and `"none"` disables the ribbon.
 #' @param interval_level Numeric in `(0, 1)` giving the central quantile width
@@ -46,24 +78,46 @@
 #' @param response Optional column name or index to select when `fun` returns
 #'   multiple predictions per row. If `NULL` and exactly two prediction columns
 #'   are returned, the second column is used.
-#' @param show_models Logical, whether to overlay individual model curves
-#'   beneath the aggregated curve (default: `FALSE`).
+#' @param show_models Logical, whether to overlay individual ensemble member
+#'   curves beneath the ensemble curve (default: `FALSE`).
 #'
 #' @return A `ggplot2` object containing the response curves arranged in a grid.
+#'
+#' @references
+#' Molnar, C. (2025). *Interpretable Machine Learning: A Guide for Making Black
+#' Box Models Explainable* (3rd ed.). <https://christophm.github.io/interpretable-ml-book/>
+#'
+#' Friedman, J. H. (2001). Greedy function approximation: A gradient boosting
+#' machine. *The Annals of Statistics*, 29(5), 1189-1232.
+#'
+#' Apley, D. W., & Zhu, J. (2020). Visualizing the effects of predictor
+#' variables in black box supervised learning models. *Journal of the Royal
+#' Statistical Society: Series B*, 82(4), 1059-1086.
 #'
 #' @export
 #'
 #' @examples
-#' data(iris)
-#' models <- list(
-#'   lm(Sepal.Length ~ Sepal.Width + Petal.Length, data = iris),
-#'   lm(Sepal.Length ~ Petal.Width + Petal.Length, data = iris)
-#' )
-#' response_plot <- multimodel(
-#'   models,
-#'   x = iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")]
-#' )
-#' print(response_plot)
+#' if (requireNamespace("mgcv", quietly = TRUE)) {
+#'   data(iris)
+#'   predictors <- iris[, c("Sepal.Width", "Petal.Length")]
+#'
+#'   models <- list(
+#'     lm(Sepal.Length ~ Sepal.Width + Petal.Length, data = iris),
+#'     mgcv::gam(
+#'       Sepal.Length ~ s(Sepal.Width) + s(Petal.Length),
+#'       data = iris
+#'     )
+#'   )
+#'
+#'   response_plot <- multimodel(
+#'     models,
+#'     predictors,
+#'     method = "pdp",
+#'     background_n = 50,
+#'     show_models = TRUE
+#'   )
+#'   print(response_plot)
+#' }
 multimodel <- function(models, x = NULL, predict_data = NULL,
                        fun = stats::predict, ...,
                        method = c("profile", "pdp", "ale"),

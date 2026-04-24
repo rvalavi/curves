@@ -1,9 +1,27 @@
-#' Interactive map-linked response curves
+#' Interactive map-linked response curve explorer
 #'
-#' Launch a Shiny explorer that links a prediction raster to univariate
-#' response curves. Clicking a map cell overlays the clicked site's predictor
-#' values on the response-curve panels, similar to the Maxent-style diagnostic
-#' view shown by Elith et al. (2010).
+#' Launch a Shiny app that links a prediction raster to model-agnostic
+#' univariate response curves. Clicking a map cell extracts that cell's
+#' predictor values and marks them on the curve panels, making spatial
+#' predictions and curve-based model behaviour inspectable together.
+#'
+#' @details
+#' The map displays the supplied prediction raster; the model is not refitted
+#' inside the app. The curve panel is computed once with the same methods as
+#' [univariate()]. For a fitted prediction function \eqn{\hat{f}} and plotted
+#' predictor \eqn{x_j}, `"profile"` uses a reference-row curve
+#' \eqn{\hat{f}(z, x_{-j}^{ref})}, `"ice"` plots sampled row-level curves
+#' \eqn{\hat{f}(z, x_{-j}^{(i)})}, `"pdp"` plots their average
+#' \deqn{\hat{f}_{j,PDP}(z) = \frac{1}{m}\sum_{i=1}^{m}
+#'   \hat{f}(z, x_{-j}^{(i)}),}
+#' and `"ale"` plots centred accumulated local effects for numeric predictors.
+#' When a user clicks the map, the clicked cell's covariate value is overlaid on
+#' each panel so the local environmental context can be compared with the
+#' fitted response curve and the sampled predictor distribution.
+#'
+#' These curves are diagnostic summaries of a fitted prediction model. They do
+#' not by themselves establish causal effects, and PDP/ICE/profile curves can
+#' evaluate uncommon predictor combinations when predictors are dependent.
 #'
 #' @param model A fitted model object that supports prediction.
 #' @param map A single-layer `terra::SpatRaster` containing the predicted
@@ -53,6 +71,10 @@
 #'
 #' @return A `shiny.appobj` object. If `launch = TRUE`, the app is also run and
 #'   returned invisibly after it closes.
+#'
+#' @references
+#' Molnar, C. (2025). *Interpretable Machine Learning: A Guide for Making Black
+#' Box Models Explainable* (3rd ed.). <https://christophm.github.io/interpretable-ml-book/>
 #'
 #' @export
 #'

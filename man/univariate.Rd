@@ -2,7 +2,7 @@
 % Please edit documentation in R/univariate.R
 \name{univariate}
 \alias{univariate}
-\title{Univariate response curve plot}
+\title{Univariate model-agnostic response curves}
 \usage{
 univariate(
   model,
@@ -58,8 +58,8 @@ used when \code{interval = "quantile"}. Ignored otherwise.}
 \item{ylim}{Numeric vector of length 2, specifying the limits of the y-axis.
 If \code{NULL}, limits are automatically set.}
 
-\item{ylab}{Optional character label for the y-axis. If \code{NULL}, the
-default is \code{"Prediction"} for profile, PDP, and ICE methods, and
+\item{ylab}{Optional character label for the y-axis. If \code{NULL}, the default
+is \code{"Prediction"} for profile, PDP, and ICE methods, and
 \code{"Accumulated local effect"} for \code{method = "ale"}.}
 
 \item{color}{Character, colour of the response curve (default:
@@ -86,8 +86,47 @@ predictors with a warning.}
 A \code{ggplot2} object containing the response curves arranged in a grid.
 }
 \description{
-This function generates response curves for a given model by varying one
-predictor at a time while keeping others constant.
+Plot how a fitted model's predictions change across one predictor at a time
+using single-profile, partial dependence, individual conditional expectation,
+or accumulated local effects curves.
+}
+\details{
+Let \eqn{\hat{f}} denote the fitted prediction function, \eqn{x_j} the
+predictor being plotted, and \eqn{x_{-j}} all other predictors. The
+\code{"profile"} method builds one reference row, using the mean numeric value and
+modal factor level of each predictor, and plots
+\deqn{g_j(z) = \hat{f}(z, x_{-j}^{ref}).}
+This is a single ceteris paribus curve: it is easy to read, but it describes
+the model only around the chosen reference profile.
+
+For \code{"ice"}, the curve for sampled row \eqn{i} is
+\deqn{g_j^{(i)}(z) = \hat{f}(z, x_{-j}^{(i)}).}
+ICE curves show row-level heterogeneity. \code{"ice+pdp"} overlays their average.
+For \code{"pdp"}, the plotted partial dependence curve is the Monte Carlo
+average over \eqn{m} sampled background rows,
+\deqn{\hat{f}_{j,PDP}(z) = \frac{1}{m}\sum_{i=1}^{m}
+  \hat{f}(z, x_{-j}^{(i)}).}
+This follows the marginal-distribution PDP definition in Molnar (2025).
+When predictors are strongly dependent, PDP and ICE curves can include
+feature combinations that are rare or outside the observed data distribution.
+
+For \code{"ale"}, numeric \eqn{x_j} is split into intervals with breakpoints
+\eqn{z_0 < \cdots < z_K}. For interval
+\eqn{N_j(k) = \{i: x_j^{(i)} \in (z_{k-1}, z_k]\}}, the local effect is
+estimated by
+\deqn{\Delta_{j,k} = \frac{1}{n_j(k)}\sum_{i \in N_j(k)}
+  \left[\hat{f}(z_k, x_{-j}^{(i)}) -
+  \hat{f}(z_{k-1}, x_{-j}^{(i)})\right].}
+The reported value at the interval centre
+\eqn{c_k = (z_{k-1} + z_k) / 2} is accumulated and centred,
+\deqn{\hat{f}_{j,ALE}(c_k) =
+  \left(\sum_{\ell=1}^{k}\Delta_{j,\ell} -
+  \frac{1}{2}\Delta_{j,k}\right) -
+  \frac{\sum_{k=1}^{K} n_j(k)\tilde{f}_{j,ALE}(c_k)}
+       {\sum_{k=1}^{K} n_j(k)},}
+where \eqn{\tilde{f}_{j,ALE}(c_k)} is the uncentred accumulated value. ALE
+averages local prediction differences within observed intervals and then
+centres the curve so its sample-weighted mean effect is zero.
 }
 \examples{
 data(iris)
@@ -125,4 +164,20 @@ ale_plot <- univariate(
   n = 20
 )
 print(ale_plot)
+}
+\references{
+Molnar, C. (2025). \emph{Interpretable Machine Learning: A Guide for Making Black
+Box Models Explainable} (3rd ed.). \url{https://christophm.github.io/interpretable-ml-book/}
+
+Friedman, J. H. (2001). Greedy function approximation: A gradient boosting
+machine. \emph{The Annals of Statistics}, 29(5), 1189-1232.
+
+Goldstein, A., Kapelner, A., Bleich, J., & Pitkin, E. (2015). Peeking inside
+the black box: Visualizing statistical learning with plots of individual
+conditional expectation. \emph{Journal of Computational and Graphical Statistics},
+24(1), 44-65.
+
+Apley, D. W., & Zhu, J. (2020). Visualizing the effects of predictor
+variables in black box supervised learning models. \emph{Journal of the Royal
+Statistical Society: Series B}, 82(4), 1059-1086.
 }
