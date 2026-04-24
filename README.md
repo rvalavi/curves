@@ -9,14 +9,14 @@ fitted models with **ggplot2**. The package is intentionally small and
 model-agnostic: supply a fitted model, predictor data, and, when needed, a
 custom prediction function.
 
-<img src="man/figures/readme-univariate.png" alt="Partial dependence curves from the species distribution vignette" width="100%" />
+<img src="man/figures/readme-univariate.png" alt="Partial dependence curves from the species distribution vignette" width="85%" />
 
 The figure above shows partial dependence curves from the included species
 distribution vignette.
 
 ## Current package scope
 
-The current API is centred around three exported functions:
+The current API is centred around four exported functions:
 
 - `univariate()` for one-predictor response curves with
   `method = "profile"`, `"pdp"`, `"ice"`, `"ice+pdp"`, or `"ale"`.
@@ -24,6 +24,8 @@ The current API is centred around three exported functions:
   heatmaps, filled contours, or interactive 3D `plotly` surfaces.
 - `multimodel()` for ensemble profile, PDP, or ALE curves across multiple
   fitted models, with optional interval ribbons and member-model overlays.
+- `interactive_map_curves()` for Shiny-based exploration that links a
+  prediction raster to response curves at clicked map cells.
 
 A few practical details are worth calling out:
 
@@ -141,3 +143,12 @@ vignette("random-forest-species-distribution", package = "curves")
 
 The bivariate figure shows a centred ALE surface for two predictors from the
 same random forest example.
+
+## Interactive map-linked curves
+
+`interactive_map_curves()` opens a Shiny explorer that links a predicted map
+to fitted response curves. Clicking a raster cell marks that site's predictor
+values on the curve panels, which helps compare local conditions with profile,
+PDP, ICE, or ALE summaries.
+
+<img src="man/figures/readme-interactive.png" alt="Interactive map-linked response curve explorer" width="100%" />

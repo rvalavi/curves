@@ -24,7 +24,7 @@ interactive_map_curves(
   ncols = 2,
   method = c("profile", "pdp", "ice", "ice+pdp", "ale"),
   selected_color = "deepskyblue3",
-  map_palette = grDevices::hcl.colors(64, "Spectral", rev = TRUE),
+  map_palette = grDevices::hcl.colors(64, "Inferno"),
   map_title = "Prediction map",
   launch = interactive()
 )

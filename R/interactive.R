@@ -137,8 +137,7 @@ interactive_map_curves <- function(model, map, predictors,
                                    selected_color = "deepskyblue3",
                                    map_palette = grDevices::hcl.colors(
                                        64,
-                                       "Spectral",
-                                       rev = TRUE
+                                       "Inferno"
                                    ),
                                    map_title = "Prediction map",
                                    launch = interactive()) {
@@ -205,55 +204,101 @@ interactive_map_curves <- function(model, map, predictors,
     curve_height <- interactive_curve_plot_height(
         map_height = map_height
     )
+    app_theme <- interactive_app_theme()
     curve_style <- interactive_curve_style(
         nrows = curve_data$nrows,
-        map_height = map_height
+        map_height = map_height,
+        theme = app_theme
     )
 
     ui <- shiny::fluidPage(
         shiny::tags$head(
             shiny::tags$style(shiny::HTML(
                 "
+                body {
+                    background: #252932;
+                    color: #f1f3f5;
+                    font-family: 'Avenir Next', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                }
+                .container-fluid {
+                    max-width: 1900px;
+                    padding: 18px 24px 24px;
+                }
                 .curves-map-panel {
                     padding-right: 8px;
                 }
                 .curves-side-panel {
                     padding-left: 8px;
                 }
+                .curves-card {
+                    background: #2d323a;
+                    border: 1px solid #424851;
+                    border-radius: 12px;
+                    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+                }
+                .curves-map-card {
+                    padding: 12px 14px 10px;
+                }
+                .curves-curves-card {
+                    padding: 8px 10px;
+                }
                 .curves-info-box {
-                    background: #f4f4f4;
-                    border: 1px solid #d7d7d7;
-                    border-radius: 6px;
+                    background: #2d323a;
+                    border: 1px solid #424851;
+                    border-radius: 12px;
+                    display: flex;
+                    align-items: center;
+                    gap: 16px;
+                    flex-wrap: wrap;
                     margin-top: 12px;
-                    padding: 10px 12px;
+                    padding: 10px 14px;
                 }
                 .curves-info-title {
                     font-weight: 700;
-                    margin-bottom: 4px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.08em;
+                    color: #ffc857;
+                    font-size: 0.8rem;
+                    white-space: nowrap;
                 }
-                .curves-info-line {
+                .curves-info-metric {
                     margin: 0;
+                    color: #f1f3f5;
+                    font-size: 1rem;
+                    white-space: nowrap;
+                }
+                .curves-info-muted {
+                    color: #c9d0d7;
+                }
+                .shiny-plot-output {
+                    display: block;
                 }
                 "
             ))
         ),
         shiny::fluidRow(
             shiny::column(
-                width = 7,
+                width = 5,
                 class = "curves-map-panel",
-                shiny::plotOutput(
-                    "curves_map",
-                    click = "curves_map_click",
-                    height = sprintf("%spx", map_height)
+                shiny::div(
+                    class = "curves-card curves-map-card",
+                    shiny::plotOutput(
+                        "curves_map",
+                        click = "curves_map_click",
+                        height = sprintf("%spx", map_height)
+                    )
                 ),
                 shiny::uiOutput("curves_selection_info")
             ),
             shiny::column(
-                width = 5,
+                width = 7,
                 class = "curves-side-panel",
-                shiny::plotOutput(
-                    "curves_plot",
-                    height = sprintf("%spx", curve_height)
+                shiny::div(
+                    class = "curves-card curves-curves-card",
+                    shiny::plotOutput(
+                        "curves_plot",
+                        height = sprintf("%spx", curve_height)
+                    )
                 )
             )
         )
@@ -277,7 +322,8 @@ interactive_map_curves <- function(model, map, predictors,
                 selection = selected_site(),
                 palette = map_palette,
                 title = map_title,
-                marker_color = selected_color
+                marker_color = selected_color,
+                theme = app_theme
             )
         })
 
@@ -569,13 +615,35 @@ interactive_curve_plot_height <- function(map_height) {
 }
 
 
-interactive_curve_style <- function(nrows, map_height) {
+interactive_app_theme <- function() {
+    list(
+        map_bg = "#252932",
+        map_na = "#252932",
+        map_text = "#f1f3f5",
+        plot_bg = "#ffffff",
+        plot_panel_bg = "#ffffff",
+        plot_border = "#d9d9d9",
+        plot_grid = "#e8e8e8",
+        plot_text = "#20252b",
+        plot_muted = "#58616a"
+    )
+}
+
+
+interactive_curve_style <- function(nrows, map_height, theme) {
     panel_height <- map_height / max(1L, nrows)
 
     list(
         title_size = max(8, min(11, panel_height / 16)),
         axis_text_size = max(6.5, min(10, panel_height / 22)),
-        margin = if (panel_height < 150) 2 else 4
+        margin = if (panel_height < 150) 2 else 4,
+        family = "sans",
+        title_color = theme$plot_text,
+        axis_color = theme$plot_muted,
+        plot_bg = theme$plot_bg,
+        panel_bg = theme$plot_panel_bg,
+        panel_border = theme$plot_border,
+        grid_color = theme$plot_grid
     )
 }
 
@@ -636,14 +704,24 @@ extract_raster_values <- function(x, locations) {
 }
 
 
-plot_prediction_map <- function(map, selection, palette, title, marker_color) {
+plot_prediction_map <- function(map, selection, palette, title, marker_color,
+                                theme) {
+    graphics::par(
+        bg = theme$map_bg,
+        fg = theme$map_text,
+        family = "sans",
+        col.main = theme$map_text,
+        cex.main = 1.35,
+        font.main = 2
+    )
+
     terra::plot(
         map,
         col = palette,
-        colNA = "black",
+        colNA = theme$map_na,
         axes = FALSE,
         box = FALSE,
-        mar = c(1.5, 1.5, 2.5, 5.5),
+        mar = c(1.4, 1.4, 2.2, 5.1),
         main = title
     )
 
@@ -665,24 +743,28 @@ build_selection_info <- function(selection, ylab) {
     if (is.null(selection)) {
         return(shiny::div(
             class = "curves-info-box",
-            shiny::div("Selected site", class = "curves-info-title"),
-            shiny::tags$p(
+            shiny::span("Selected site", class = "curves-info-title"),
+            shiny::span(
                 "Click a non-missing raster cell to place site markers on the response curves.",
-                class = "curves-info-line"
+                class = "curves-info-metric curves-info-muted"
             )
         ))
     }
 
     shiny::div(
         class = "curves-info-box",
-        shiny::div("Selected site", class = "curves-info-title"),
-        shiny::tags$p(
-            sprintf("x = %.4f, y = %.4f", selection$x, selection$y),
-            class = "curves-info-line"
+        shiny::span("Selected site", class = "curves-info-title"),
+        shiny::span(
+            sprintf("x = %.4f", selection$x),
+            class = "curves-info-metric"
         ),
-        shiny::tags$p(
+        shiny::span(
+            sprintf("y = %.4f", selection$y),
+            class = "curves-info-metric"
+        ),
+        shiny::span(
             sprintf("%s = %.4f", ylab, selection$prediction),
-            class = "curves-info-line"
+            class = "curves-info-metric"
         )
     )
 }
@@ -692,13 +774,42 @@ style_interactive_curve_plot <- function(plot, title, style) {
     plot +
         ggplot2::labs(title = title, x = NULL, y = NULL) +
         ggplot2::theme(
+            text = ggplot2::element_text(
+                family = style$family,
+                color = style$title_color
+            ),
             plot.title = ggplot2::element_text(
                 hjust = 0.5,
                 face = "bold",
-                size = style$title_size
+                size = style$title_size,
+                color = style$title_color
             ),
             axis.title = ggplot2::element_blank(),
-            axis.text = ggplot2::element_text(size = style$axis_text_size),
+            axis.text = ggplot2::element_text(
+                size = style$axis_text_size,
+                color = style$axis_color
+            ),
+            axis.ticks = ggplot2::element_line(
+                color = style$axis_color,
+                linewidth = 0.25
+            ),
+            panel.background = ggplot2::element_rect(
+                fill = style$panel_bg,
+                color = NA
+            ),
+            panel.border = ggplot2::element_rect(
+                fill = NA,
+                color = style$panel_border,
+                linewidth = 0.55
+            ),
+            plot.background = ggplot2::element_rect(
+                fill = style$plot_bg,
+                color = NA
+            ),
+            panel.grid.major = ggplot2::element_line(
+                color = style$grid_color,
+                linewidth = 0.35
+            ),
             panel.grid.minor = ggplot2::element_blank(),
             plot.margin = ggplot2::margin(
                 style$margin,
