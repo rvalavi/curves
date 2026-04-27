@@ -533,21 +533,28 @@ plot_1D <- function(df, dat, fact, ordered_factor = FALSE, rug, se,
 
     if (has_band) {
         plt <- plt + ggplot2::geom_ribbon(
-            ggplot2::aes(ymin = ymin, ymax = ymax),
+            ggplot2::aes(ymin = get("ymin"), ymax = get("ymax")),
             fill = ribcol,
             alpha = 0.35
         )
     } else if (summary_has_band) {
         plt <- plt + ggplot2::geom_ribbon(
             data = summary_df,
-            ggplot2::aes(x = x, ymin = ymin, ymax = ymax),
+            ggplot2::aes(
+                x = get("x"),
+                ymin = get("ymin"),
+                ymax = get("ymax")
+            ),
             fill = ribcol,
             alpha = 0.35,
             inherit.aes = FALSE
         )
     } else if (ncol(df) > 2L && !fact && se && !has_curve_groups) {
         plt <- plt + ggplot2::geom_ribbon(
-            ggplot2::aes(ymin = y - std, ymax = y + std),
+            ggplot2::aes(
+                ymin = get("y") - get("std"),
+                ymax = get("y") + get("std")
+            ),
             fill = ribcol,
             alpha = 0.6
         )
@@ -558,7 +565,7 @@ plot_1D <- function(df, dat, fact, ordered_factor = FALSE, rug, se,
             if (ordered_factor) {
                 plt <- plt +
                     ggplot2::geom_line(
-                        ggplot2::aes(group = curve),
+                        ggplot2::aes(group = get("curve")),
                         color = color,
                         alpha = curve_alpha,
                         linewidth = curve_linewidth
@@ -567,7 +574,7 @@ plot_1D <- function(df, dat, fact, ordered_factor = FALSE, rug, se,
 
             plt <- plt +
                 ggplot2::geom_point(
-                    ggplot2::aes(group = curve),
+                    ggplot2::aes(group = get("curve")),
                     color = color,
                     alpha = curve_alpha,
                     size = 1.2
@@ -581,7 +588,7 @@ plot_1D <- function(df, dat, fact, ordered_factor = FALSE, rug, se,
     } else {
         if (has_curve_groups) {
             plt <- plt + ggplot2::geom_line(
-                ggplot2::aes(group = curve),
+                ggplot2::aes(group = get("curve")),
                 color = color,
                 alpha = curve_alpha,
                 linewidth = curve_linewidth

@@ -4,7 +4,7 @@
 \name{curves-package}
 \alias{curves}
 \alias{curves-package}
-\title{curves: Generating Response Curves From Any Fitted Model}
+\title{curves: Model-Agnostic Response Curves for Fitted Models}
 \description{
 \if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
 \code{curves} provides model-agnostic plots for inspecting fitted prediction

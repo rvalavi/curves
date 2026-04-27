@@ -789,11 +789,11 @@ plot_2D <- function(df, x_name, y_name, x_factor, y_factor, plot_type, z_name,
         plt <- plt +
             ggplot2::geom_rect(
                 ggplot2::aes(
-                    xmin = xmin,
-                    xmax = xmax,
-                    ymin = ymin,
-                    ymax = ymax,
-                    fill = z
+                    xmin = get("xmin"),
+                    xmax = get("xmax"),
+                    ymin = get("ymin"),
+                    ymax = get("ymax"),
+                    fill = get("z")
                 )
             ) +
             response_fill_scale(

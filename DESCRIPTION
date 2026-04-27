@@ -1,6 +1,6 @@
 Package: curves
 Type: Package
-Title: Generating Response Curves From Any Fitted Model
+Title: Model-Agnostic Response Curves for Fitted Models
 Version: 0.3.0
 Authors@R: c(
     person(
@@ -11,10 +11,15 @@ Authors@R: c(
   )
 Author: Roozbeh Valavi [aut, cre]
 Maintainer: Roozbeh Valavi <valavi.r@gmail.com>
-Description: Create univariate and bivariate response curves for fitted
-    models and build ensemble response curves across multiple fitted
-    models using ggplot2.
-License: GPL-3 + file LICENSE
+Description: Create model-agnostic response-curve diagnostics for fitted
+    prediction models. Supports profile curves, partial dependence,
+    individual conditional expectation, and accumulated local effects;
+    univariate curves, bivariate surfaces, ensemble summaries across
+    multiple models, and optional raster-linked exploration with 'terra'
+    and 'shiny'. Static displays are returned as 'ggplot2' plots.
+URL: https://github.com/rvalavi/curves
+BugReports: https://github.com/rvalavi/curves/issues
+License: GPL-3
 Encoding: UTF-8
 Depends:
   R (>= 3.5.0)
@@ -22,9 +27,11 @@ Imports:
   cowplot,
   ggplot2 (>= 3.3.6)
 Suggests:
+  disdat,
   knitr,
   mgcv,
   plotly,
+  randomForest,
   rmarkdown,
   shiny,
   terra (>= 1.6-41),

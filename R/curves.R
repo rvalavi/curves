@@ -1,4 +1,4 @@
-#' curves: Generating Response Curves From Any Fitted Model
+#' curves: Model-Agnostic Response Curves for Fitted Models
 #'
 #' \if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
 #' `curves` provides model-agnostic plots for inspecting fitted prediction
