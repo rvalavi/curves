@@ -24,6 +24,7 @@ mapcurve(
   ncols = 2,
   method = c("profile", "pdp", "ice", "ice+pdp", "ale"),
   selected_color = "deepskyblue3",
+  crosshair = TRUE,
   map_palette = grDevices::hcl.colors(64, "Inferno"),
   map_title = "Prediction map",
   launch = interactive()
@@ -89,6 +90,9 @@ accumulated local effects curves for numeric predictors.}
 
 \item{selected_color}{Character, colour used for the clicked-site marker on
 the map and response curves.}
+
+\item{crosshair}{Logical, whether to draw dashed horizontal and vertical
+guide lines through the selected map cell. Defaults to \code{TRUE}.}
 
 \item{map_palette}{Character vector of colours used to draw the prediction
 map.}

@@ -64,6 +64,8 @@
 #'   accumulated local effects curves for numeric predictors.
 #' @param selected_color Character, colour used for the clicked-site marker on
 #'   the map and response curves.
+#' @param crosshair Logical, whether to draw dashed horizontal and vertical
+#'   guide lines through the selected map cell. Defaults to `TRUE`.
 #' @param map_palette Character vector of colours used to draw the prediction
 #'   map.
 #' @param map_title Character, title shown above the map.
@@ -135,6 +137,7 @@ mapcurve <- function(model, map, predictors,
                          "ale"
                      ),
                      selected_color = "deepskyblue3",
+                     crosshair = TRUE,
                      map_palette = grDevices::hcl.colors(
                          64,
                          "Inferno"
@@ -323,6 +326,7 @@ mapcurve <- function(model, map, predictors,
                 palette = map_palette,
                 title = map_title,
                 marker_color = selected_color,
+                crosshair = crosshair,
                 theme = app_theme
             )
         })
@@ -705,7 +709,7 @@ extract_raster_values <- function(x, locations) {
 
 
 plot_prediction_map <- function(map, selection, palette, title, marker_color,
-                                theme) {
+                                crosshair, theme) {
     graphics::par(
         bg = theme$map_bg,
         fg = theme$map_text,
@@ -726,6 +730,17 @@ plot_prediction_map <- function(map, selection, palette, title, marker_color,
     )
 
     if (!is.null(selection)) {
+        if (isTRUE(crosshair)) {
+            guide_color <- grDevices::adjustcolor(marker_color, alpha.f = 0.72)
+            graphics::abline(
+                v = selection$x,
+                h = selection$y,
+                col = guide_color,
+                lty = 3,
+                lwd = 0.95
+            )
+        }
+
         graphics::points(
             selection$x,
             selection$y,
