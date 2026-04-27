@@ -24,7 +24,7 @@ The current API is centred around four exported functions:
   heatmaps, filled contours, or interactive 3D `plotly` surfaces.
 - `multimodel()` for ensemble profile, PDP, or ALE curves across multiple
   fitted models, with optional interval ribbons and member-model overlays.
-- `interactive_map_curves()` for Shiny-based exploration that links a
+- `mapcurve()` for Shiny-based exploration that links a
   prediction raster to response curves at clicked map cells.
 
 A few practical details are worth calling out:
@@ -146,7 +146,7 @@ same random forest example.
 
 ## Interactive map-linked curves
 
-`interactive_map_curves()` opens a Shiny explorer that links a predicted map
+`mapcurve()` opens a Shiny explorer that links a predicted map
 to fitted response curves. Clicking a raster cell marks that site's predictor
 values on the curve panels, which helps compare local conditions with profile,
 PDP, ICE, or ALE summaries.

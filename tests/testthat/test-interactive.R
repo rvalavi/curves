@@ -1,4 +1,4 @@
-test_that("interactive_map_curves returns a shiny app object", {
+test_that("mapcurve returns a shiny app object", {
     skip_if_not_installed("terra")
     skip_if_not_installed("shiny")
 
@@ -26,7 +26,7 @@ test_that("interactive_map_curves returns a shiny app object", {
     terra::values(pred_map) <- dat$y
     names(pred_map) <- "prediction"
 
-    app <- interactive_map_curves(
+    app <- mapcurve(
         model,
         map = pred_map,
         predictors = r,
@@ -75,7 +75,7 @@ test_that("interactive helpers resolve clicked raster values", {
 })
 
 
-test_that("interactive_map_curves checks predictor layers against plotted variables", {
+test_that("mapcurve checks predictor layers against plotted variables", {
     skip_if_not_installed("terra")
     skip_if_not_installed("shiny")
 
@@ -106,7 +106,7 @@ test_that("interactive_map_curves checks predictor layers against plotted variab
     names(incomplete_predictors) <- "x1"
 
     expect_error(
-        interactive_map_curves(
+        mapcurve(
             model,
             map = pred_map,
             predictors = incomplete_predictors,
@@ -118,7 +118,7 @@ test_that("interactive_map_curves checks predictor layers against plotted variab
 })
 
 
-test_that("interactive_map_curves uses the same interval interface as univariate", {
+test_that("mapcurve uses the same interval interface as univariate", {
     skip_if_not_installed("terra")
     skip_if_not_installed("shiny")
 
@@ -147,7 +147,7 @@ test_that("interactive_map_curves uses the same interval interface as univariate
     names(pred_map) <- "prediction"
 
     expect_s3_class(
-        interactive_map_curves(
+        mapcurve(
             model,
             map = pred_map,
             predictors = r,
@@ -160,7 +160,7 @@ test_that("interactive_map_curves uses the same interval interface as univariate
     )
 
     expect_error(
-        interactive_map_curves(
+        mapcurve(
             model,
             map = pred_map,
             predictors = r,

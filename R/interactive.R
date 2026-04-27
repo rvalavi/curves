@@ -105,7 +105,7 @@
 #'   terra::values(pred_map) <- dat$y
 #'   names(pred_map) <- "prediction"
 #'
-#'   app <- interactive_map_curves(
+#'   app <- mapcurve(
 #'     fit,
 #'     map = pred_map,
 #'     predictors = r,
@@ -113,34 +113,34 @@
 #'   )
 #'   invisible(app)
 #' }
-interactive_map_curves <- function(model, map, predictors,
-                                   predict_data = NULL,
-                                   fun = stats::predict, ...,
-                                   n = 100,
-                                   background_n = n,
-                                   interval = c("none", "quantile"),
-                                   interval_level = 0.8,
-                                   ylab = "Prediction",
-                                   rug = TRUE,
-                                   ylim = NULL,
-                                   color = "#ff5a36",
-                                   response = NULL,
-                                   nrows = NULL,
-                                   ncols = 2,
-                                   method = c(
-                                       "profile",
-                                       "pdp",
-                                       "ice",
-                                       "ice+pdp",
-                                       "ale"
-                                   ),
-                                   selected_color = "deepskyblue3",
-                                   map_palette = grDevices::hcl.colors(
-                                       64,
-                                       "Inferno"
-                                   ),
-                                   map_title = "Prediction map",
-                                   launch = interactive()) {
+mapcurve <- function(model, map, predictors,
+                     predict_data = NULL,
+                     fun = stats::predict, ...,
+                     n = 100,
+                     background_n = n,
+                     interval = c("none", "quantile"),
+                     interval_level = 0.8,
+                     ylab = "Prediction",
+                     rug = TRUE,
+                     ylim = NULL,
+                     color = "#ff5a36",
+                     response = NULL,
+                     nrows = NULL,
+                     ncols = 2,
+                     method = c(
+                         "profile",
+                         "pdp",
+                         "ice",
+                         "ice+pdp",
+                         "ale"
+                     ),
+                     selected_color = "deepskyblue3",
+                     map_palette = grDevices::hcl.colors(
+                         64,
+                         "Inferno"
+                     ),
+                     map_title = "Prediction map",
+                     launch = interactive()) {
 
     method <- match.arg(method)
     interval <- match.arg(interval)
@@ -156,14 +156,14 @@ interactive_map_curves <- function(model, map, predictors,
 
     if (!requireNamespace("shiny", quietly = TRUE)) {
         stop(
-            "Package `shiny` must be installed to use interactive_map_curves().",
+            "Package `shiny` must be installed to use mapcurve().",
             call. = FALSE
         )
     }
 
     if (!requireNamespace("terra", quietly = TRUE)) {
         stop(
-            "Package `terra` must be installed to use interactive_map_curves().",
+            "Package `terra` must be installed to use mapcurve().",
             call. = FALSE
         )
     }
