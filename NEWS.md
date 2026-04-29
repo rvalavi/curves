@@ -1,3 +1,24 @@
+# curves 0.3.1 (development)
+
+## Fixes
+
+- `bivariate(method = "ale")` now masks grid cells that contain no
+  observations as `NA` in the returned surface and renders them in the
+  fill scale's `na.value` (default light grey) rather than colouring them
+  with a value extrapolated from neighbouring cells. This prevents the
+  interaction surface from displaying confident estimates over regions of
+  feature space that the data does not support, which previously misled
+  readers when predictors were correlated.
+- `bivariate(method = "ale")` now defaults to `n = 10` (the second-order
+  surface uses an `n x n` cell grid; `n = 40` left most cells empty for
+  typical data) and to `rug = TRUE` so the data density is always visible.
+- `ale_surface_limits()` is robust to surfaces that are entirely `NA`.
+- Updated docs/`Rd` to describe the half-cell centring convention used for
+  the 2D ALE accumulation and the empty-cell masking behaviour.
+- Enabled categorical ALE in `multimodel()` and `mapcurve()`, matching the
+  univariate ALE support and using a shared level order across ensemble
+  members when `multimodel()` averages unordered factor effects.
+
 # curves 0.3.0
 
 ## New features

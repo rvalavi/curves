@@ -110,6 +110,24 @@ validate_interval_level <- function(interval_level) {
 }
 
 
+default_predict_fun <- function(env = parent.frame()) {
+    get("predict", mode = "function", envir = env, inherits = TRUE)
+}
+
+
+resolve_predict_fun <- function(fun, env = parent.frame()) {
+    if (is.null(fun)) {
+        return(default_predict_fun(env))
+    }
+
+    if (!is.function(fun)) {
+        stop("`fun` must be a function.")
+    }
+
+    fun
+}
+
+
 curve_sample_size <- function(x_source, n, background_n, method) {
     target_n <- if (method %in% c("pdp", "ice", "ice+pdp")) {
         max(n, background_n)
@@ -257,7 +275,11 @@ sample_rug_values <- function(x_df, column, max_n = 5000L) {
 }
 
 
-normalize_multimodel_funs <- function(fun, n_models) {
+normalize_multimodel_funs <- function(fun, n_models, env = parent.frame()) {
+    if (is.null(fun)) {
+        return(rep(list(default_predict_fun(env)), n_models))
+    }
+
     if (is.function(fun)) {
         return(rep(list(fun), n_models))
     }

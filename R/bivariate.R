@@ -29,10 +29,19 @@
 #'    \hat{f}(z_{k-1}, w_l, x_C^{(i)}) -
 #'    \hat{f}(z_k, w_{l-1}, x_C^{(i)}) +
 #'    \hat{f}(z_{k-1}, w_{l-1}, x_C^{(i)})].}
-#' The cell effects are accumulated over the grid and centred by removing the
-#' row, column, and overall means. The resulting surface is a second-order ALE
-#' estimate: it is intended to show the additional interaction effect of the two
-#' predictors after their main effects have been removed.
+#' The cell effects are accumulated over the grid using a half-cell correction
+#' that places each value at the cell centre, then centred by removing the
+#' (count-weighted) row, column, and overall means. The resulting surface is a
+#' centred second-order ALE estimate: it shows the additional **interaction
+#' effect** of the two predictors after their first-order main effects have
+#' been removed.
+#'
+#' Cells that contain no observations are treated as unsupported: the cell
+#' effect is interpolated from neighbouring cells so the accumulation can run,
+#' but the cell is masked (`NA`) in the returned surface and rendered in
+#' `na.value` (default light grey) in the plot. This avoids extrapolating the
+#' interaction surface into regions of feature space that are not represented
+#' by the data, which is critical when predictors are correlated.
 #'
 #' @param model A fitted model object that supports prediction.
 #' @param x A data frame or raster containing predictor variables. If
@@ -43,16 +52,19 @@
 #'   `NULL` to plot all unique pairs, a character or numeric vector of length 2
 #'   for a single pair, or a list/data frame/matrix of pairs. Numeric pairs are
 #'   interpreted as predictor column indices.
-#' @param fun A function used to generate predictions from the model. Defaults
-#'   to `predict`.
+#' @param fun A function used to generate predictions from the model. If
+#'   `NULL`, the generic `predict()` is used.
 #' @param ... Additional arguments passed to `fun`.
 #' @param n Integer, number of points to sample for each numeric predictor
 #'   variable (default: 40). For `"ale"`, `n` sets the maximum number of
-#'   intervals used to estimate local effects for each numeric predictor.
+#'   intervals used to estimate local effects for each numeric predictor and
+#'   defaults to 10, since the second-order surface uses an `n x n` cell
+#'   grid and finer grids tend to leave most cells unsupported by data.
 #' @param background_n Integer, number of randomly sampled background rows used
 #'   for `"pdp"` (default: `n`).
 #' @param rug Logical, whether to add a marginal rug for numeric predictor pairs
-#'   in static plots (default: `FALSE`).
+#'   in static plots (default: `FALSE`, but `TRUE` for `method = "ale"` so
+#'   users can see which cells are supported by data).
 #' @param plot_type Character, plot type. Use `"heatmap"` for a static surface,
 #'   `"contour"` for filled contours, or `"surface"` for an interactive 3D
 #'   surface. The 3D surface requires the suggested `plotly` package and a
@@ -133,7 +145,7 @@
 #'   surface_plot
 #' }
 bivariate <- function(model, x = NULL, predict_data = NULL, pairs = NULL,
-                      fun = stats::predict, ..., n = 40,
+                      fun = NULL, ..., n = 40,
                       background_n = n, rug = FALSE,
                       plot_type = c("heatmap", "contour", "surface"),
                       zlab = "Prediction", bins = 8,
@@ -144,14 +156,28 @@ bivariate <- function(model, x = NULL, predict_data = NULL, pairs = NULL,
 
     plot_type <- match.arg(plot_type)
     method <- match.arg(method)
+    fun <- resolve_predict_fun(fun, env = parent.frame())
+    # Second-order ALE estimates one local effect per grid cell; the cell
+    # count grows quadratically in `n`, so a 40x40 grid leaves most cells
+    # empty for typical data. Default to a coarser grid for ALE unless the
+    # user explicitly overrides it. This matches the K = 10..20 range
+    # recommended in Apley & Zhu (2020) for 2D ALE.
+    if (missing(n) && method == "ale") {
+        n <- 10
+    }
     n <- validate_curve_n(n)
     background_n <- validate_background_n(background_n)
 
     if (missing(zlab) && method == "ale") {
-        zlab <- "ALE"
+        zlab <- "ALE\n(2nd order)"
     }
     if (missing(palette) && method == "ale") {
         palette <- default_ale_palette()
+    }
+    # Rug overlay is essential for ALE so users can see which cells are
+    # supported by data; default it on for ALE static plots only.
+    if (missing(rug) && method == "ale" && plot_type != "surface") {
+        rug <- TRUE
     }
 
     if (is.null(predict_data)) {
@@ -609,6 +635,14 @@ build_ale_surface_table <- function(model, ale_rows, spec, fun, response, ...) {
     centred_surface <- sweep(centred_surface, 2, col_means, FUN = "-")
     centred_surface <- centred_surface + overall_mean
 
+    # Mask cells with no observations: their accumulated value depends on
+    # neighbour-mean imputation and should not be plotted as a confident
+    # estimate of the interaction surface. We keep the imputed values in
+    # `raw_surface` for the accumulation/centring math, but expose NA on the
+    # outer layer so that downstream plotting and limit calculations exclude
+    # unsupported regions.
+    centred_surface[counts == 0L] <- NA_real_
+
     cell_index <- build_bivariate_index_grid(spec$x_values, spec$y_values)
 
     data.frame(
@@ -855,15 +889,20 @@ has_rect_bounds <- function(df) {
 }
 
 
-response_fill_scale <- function(palette, z_limits, discrete, n_levels = NULL) {
+response_fill_scale <- function(palette, z_limits, discrete, n_levels = NULL,
+                                na_value = "grey85") {
     if (is_viridis_palette(palette)) {
         if (discrete) {
-            return(ggplot2::scale_fill_viridis_d(option = palette))
+            return(ggplot2::scale_fill_viridis_d(
+                option = palette,
+                na.value = na_value
+            ))
         }
 
         return(ggplot2::scale_fill_viridis_c(
             option = palette,
-            limits = z_limits
+            limits = z_limits,
+            na.value = na_value
         ))
     }
 
@@ -872,12 +911,16 @@ response_fill_scale <- function(palette, z_limits, discrete, n_levels = NULL) {
             grDevices::colorRampPalette(palette)(n_levels)
         }
 
-        return(ggplot2::scale_fill_manual(values = values))
+        return(ggplot2::scale_fill_manual(
+            values = values,
+            na.value = na_value
+        ))
     }
 
     ggplot2::scale_fill_gradientn(
         colours = palette,
-        limits = z_limits
+        limits = z_limits,
+        na.value = na_value
     )
 }
 
@@ -900,10 +943,15 @@ is_viridis_palette <- function(palette) {
 
 
 ale_surface_limits <- function(values, padding = 0.02) {
-    max_abs <- max(abs(values), na.rm = TRUE)
-    if (!is.finite(max_abs)) {
-        stop("Predictions must be finite to compute plot limits")
+    finite_values <- values[is.finite(values)]
+    if (!length(finite_values)) {
+        # Entire surface is NA (e.g., every cell unsupported). Return a
+        # symmetric placeholder so that ggplot can build the panel; the rect
+        # geoms simply have nothing to colour.
+        return(c(-padding, padding))
     }
+
+    max_abs <- max(abs(finite_values))
 
     pad <- if (max_abs == 0) {
         padding

@@ -69,6 +69,7 @@ test_that("mapcurve accepts the crosshair toggle", {
         model,
         map = pred_map,
         predictors = r,
+        show_selected_ice = FALSE,
         crosshair = FALSE,
         launch = FALSE
     )
@@ -210,4 +211,49 @@ test_that("mapcurve uses the same interval interface as univariate", {
         ),
         "only supported when method = \"pdp\""
     )
+})
+
+
+test_that("mapcurve ale supports factor predictors through predict_data", {
+    skip_if_not_installed("terra")
+    skip_if_not_installed("shiny")
+
+    predictors <- terra::rast(
+        ncols = 6,
+        nrows = 6,
+        nlyrs = 2,
+        xmin = 0,
+        xmax = 1,
+        ymin = 0,
+        ymax = 1
+    )
+    species_codes <- rep(c(1, 2), length.out = terra::ncell(predictors))
+    x2_values <- rep(seq(0, 1, length.out = 6), each = 6)
+    terra::values(predictors) <- cbind(species_codes, x2_values)
+    names(predictors) <- c("Species", "x2")
+
+    dat <- data.frame(
+        Species = factor(
+            ifelse(species_codes == 1, "setosa", "versicolor"),
+            levels = c("setosa", "versicolor")
+        ),
+        x2 = x2_values
+    )
+    dat$y <- ifelse(dat$Species == "setosa", 1, 2) + dat$x2
+    model <- lm(y ~ Species + x2, data = dat)
+
+    pred_map <- predictors[[2]]
+    terra::values(pred_map) <- dat$y
+    names(pred_map) <- "prediction"
+
+    app <- mapcurve(
+        model,
+        map = pred_map,
+        predictors = predictors,
+        predict_data = dat[, c("Species", "x2")],
+        method = "ale",
+        launch = FALSE
+    )
+
+    expect_s3_class(app, "shiny.appobj")
 })

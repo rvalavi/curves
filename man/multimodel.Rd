@@ -8,7 +8,7 @@ multimodel(
   models,
   x = NULL,
   predict_data = NULL,
-  fun = stats::predict,
+  fun = NULL,
   ...,
   method = c("profile", "pdp", "ale"),
   n = 100,
@@ -39,7 +39,8 @@ return predictions on the same response scale.}
 should be made. If \code{NULL}, \code{x} must be provided.}
 
 \item{fun}{A function used to generate predictions from the model, or a list
-of functions the same length as \code{models}. Defaults to \code{predict}.}
+of functions the same length as \code{models}. If \code{NULL}, the generic
+\code{predict()} is used for every model.}
 
 \item{...}{Additional arguments passed to each prediction function. For
 mixed model types with different prediction interfaces, prefer supplying
@@ -48,7 +49,7 @@ model-specific wrappers through \code{fun}.}
 \item{method}{Character, the curve type to plot. \code{"profile"} uses a single
 reference profile, \code{"pdp"} averages over sampled predictor rows before
 combining ensemble members, and \code{"ale"} draws accumulated local effects
-curves for numeric predictors and ignores factor predictors with a warning.}
+curves.}
 
 \item{n}{Integer, number of points to sample for each numeric predictor
 variable (default: 100). For \code{"ale"}, \code{n} sets the maximum number of
@@ -121,9 +122,9 @@ the package uses
 predictions over sampled background rows,
 \deqn{h_r(z) = \frac{1}{m}\sum_{i=1}^{m}
   \hat{f}_r(z, x_{-j}^{(i)});}
-and \code{method = "ale"} accumulates centred local prediction differences for
-numeric predictors. These definitions follow the model-agnostic PDP and ALE
-notation summarized by Molnar (2025).
+and \code{method = "ale"} accumulates centred local prediction differences using
+the same univariate ALE definitions as \code{\link[=univariate]{univariate()}}. These definitions
+follow the model-agnostic PDP and ALE notation summarized by Molnar (2025).
 
 The default \code{interval = "sd"} draws \eqn{H(z) \pm s(z)}, using the ordinary
 standard deviation across model curves or, with weights,

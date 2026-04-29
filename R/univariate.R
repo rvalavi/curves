@@ -47,8 +47,8 @@
 #'   `predict_data` is provided, this argument is ignored.
 #' @param predict_data A data frame containing values at which predictions
 #'   should be made. If `NULL`, `x` must be provided.
-#' @param fun A function used to generate predictions from the model. Defaults
-#'   to `predict`.
+#' @param fun A function used to generate predictions from the model. If
+#'   `NULL`, the generic `predict()` is used.
 #' @param ... Additional arguments passed to `fun`.
 #' @param n Integer, number of points to sample for each numeric predictor
 #'   variable (default: 100). For `"ale"`, `n` sets the maximum number of
@@ -80,8 +80,7 @@
 #'   reference profile, `"pdp"` averages over sampled predictor rows,
 #'   `"ice"` draws individual conditional expectation curves, and `"ice+pdp"`
 #'   overlays the averaged PDP on top of the ICE curves. `"ale"` draws
-#'   accumulated local effects curves for numeric predictors and ignores factor
-#'   predictors with a warning.
+#'   accumulated local effects curves.
 #'
 #' @return A `ggplot2` object containing the response curves arranged in a grid.
 #'
@@ -141,7 +140,7 @@
 #' print(ale_plot)
 univariate <- function(model, x = NULL,
                        predict_data = NULL,
-                       fun = stats::predict, ...,
+                       fun = NULL, ...,
                        n = 100,
                        background_n = n,
                        interval = c("none", "quantile"),
@@ -157,6 +156,7 @@ univariate <- function(model, x = NULL,
 
     method <- match.arg(method)
     interval <- match.arg(interval)
+    fun <- resolve_predict_fun(fun, env = parent.frame())
     n <- validate_curve_n(n)
     background_n <- validate_background_n(background_n)
 
@@ -191,24 +191,6 @@ univariate <- function(model, x = NULL,
     x_df <- validate_predictors(x_source, sample_size = sample_size)
     nms <- names(x_df)
     predictor_names <- nms
-
-    if (method == "ale") {
-        factor_predictors <- names(x_df)[vapply(x_df, is.factor, logical(1))]
-
-        if (length(factor_predictors)) {
-            warning(
-                "ALE currently supports numeric predictors only. Ignoring factor predictors: ",
-                paste(factor_predictors, collapse = ", "),
-                call. = FALSE
-            )
-        }
-
-        predictor_names <- names(x_df)[vapply(x_df, is.numeric, logical(1))]
-
-        if (!length(predictor_names)) {
-            stop("ALE requires at least one numeric predictor to plot")
-        }
-    }
 
     reference_row <- if (method == "profile") build_reference_row(x_df) else NULL
     background_rows <- if (method %in% c("pdp", "ice", "ice+pdp")) {
@@ -335,6 +317,11 @@ univariate <- function(model, x = NULL,
             y_name = ylab,
             color = color,
             ylim = limits,
+            curve_color = if (identical(method, "ice+pdp")) {
+                "gray70"
+            } else {
+                color
+            },
             curve_alpha = if (method %in% c("ice", "ice+pdp")) 0.15 else 1,
             curve_linewidth = if (method %in% c("ice", "ice+pdp")) 0.35 else 0.7,
             summary_df = table$summary,
@@ -388,14 +375,23 @@ build_ice_curve_table <- function(model, background_rows, column, values, fun,
 
 
 build_ale_curve_table <- function(model, ale_rows, column, n, fun,
-                                  response, ...) {
+                                  response, level_order = NULL, ...) {
     x <- ale_rows[[column]]
 
+    if (is.factor(x)) {
+        return(build_categorical_ale_curve_table(
+            model    = model,
+            ale_rows = ale_rows,
+            column   = column,
+            fun      = fun,
+            response = response,
+            level_order = level_order,
+            ...
+        ))
+    }
+
     if (!is.numeric(x)) {
-        stop(
-            "ALE currently supports numeric predictors only. Unsupported column: ",
-            column
-        )
+        stop("ALE supports numeric and factor predictors only. Unsupported column: ", column)
     }
 
     breaks <- ale_breaks(x, n = n)
@@ -442,6 +438,94 @@ build_ale_curve_table <- function(model, ale_rows, column, n, fun,
 
     data.frame(
         x = (lower_breaks + upper_breaks) / 2,
+        y = ale_values
+    )
+}
+
+
+build_categorical_ale_curve_table <- function(model, ale_rows, column, fun,
+                                               response, level_order = NULL,
+                                               ...) {
+    x <- ale_rows[[column]]
+    all_levels <- levels(x)
+
+    if (length(all_levels) < 2L) {
+        return(data.frame(
+            x = factor(all_levels, levels = all_levels, ordered = is.ordered(x)),
+            y = 0
+        ))
+    }
+
+    ordered_levels <- if (!is.null(level_order)) {
+        valid_levels <- if (is.ordered(x)) {
+            all_levels
+        } else {
+            all_levels[all_levels %in% unique(as.character(x))]
+        }
+
+        if (!is.character(level_order) ||
+            !setequal(level_order, valid_levels) ||
+            length(level_order) != length(valid_levels)) {
+            stop(
+                "level_order must contain each plotted factor level exactly once for column ",
+                column
+            )
+        }
+
+        level_order
+    } else if (is.ordered(x)) {
+        all_levels
+    } else {
+        preds <- extract_prediction_vector(
+            fun(model, ale_rows, ...),
+            n = nrow(ale_rows),
+            response = response
+        )
+        level_means <- tapply(preds, x, mean)
+        names(sort(level_means))
+    }
+
+    K <- length(ordered_levels)
+    counts <- tabulate(match(x, ordered_levels), nbins = K)
+
+    deltas <- vapply(seq(2L, K), function(k) {
+        lk_prev <- ordered_levels[k - 1L]
+        lk      <- ordered_levels[k]
+        mask    <- x %in% c(lk_prev, lk)
+
+        if (!any(mask)) {
+            return(0)
+        }
+
+        rows_sub <- ale_rows[mask, , drop = FALSE]
+        rows_upper <- rows_sub
+        rows_lower <- rows_sub
+        rows_upper[[column]] <- factor(lk,      levels = all_levels, ordered = is.ordered(x))
+        rows_lower[[column]] <- factor(lk_prev, levels = all_levels, ordered = is.ordered(x))
+
+        mean(
+            extract_prediction_vector(
+                fun(model, rows_upper, ...),
+                n = nrow(rows_upper),
+                response = response
+            ) - extract_prediction_vector(
+                fun(model, rows_lower, ...),
+                n = nrow(rows_lower),
+                response = response
+            )
+        )
+    }, numeric(1))
+
+    ale_values <- c(0, cumsum(deltas))
+
+    if (sum(counts) > 0L) {
+        ale_values <- ale_values - stats::weighted.mean(ale_values, w = counts)
+    }
+
+    output_levels <- if (is.ordered(x)) all_levels else ordered_levels
+
+    data.frame(
+        x = factor(ordered_levels, levels = output_levels, ordered = is.ordered(x)),
         y = ale_values
     )
 }
@@ -506,7 +590,8 @@ average_curve_table <- function(df, band = NULL) {
 
 plot_1D <- function(df, dat, fact, ordered_factor = FALSE, rug, se,
                     x_name, y_name, ylim, color,
-                    ribcol = "grey85", curve_alpha = 1,
+                    ribcol = "grey85", curve_color = color,
+                    curve_alpha = 1,
                     curve_linewidth = 0.7, summary_df = NULL,
                     summary_linewidth = 1) {
 
@@ -566,7 +651,7 @@ plot_1D <- function(df, dat, fact, ordered_factor = FALSE, rug, se,
                 plt <- plt +
                     ggplot2::geom_line(
                         ggplot2::aes(group = get("curve")),
-                        color = color,
+                        color = curve_color,
                         alpha = curve_alpha,
                         linewidth = curve_linewidth
                     )
@@ -575,7 +660,7 @@ plot_1D <- function(df, dat, fact, ordered_factor = FALSE, rug, se,
             plt <- plt +
                 ggplot2::geom_point(
                     ggplot2::aes(group = get("curve")),
-                    color = color,
+                    color = curve_color,
                     alpha = curve_alpha,
                     size = 1.2
                 )
@@ -589,13 +674,13 @@ plot_1D <- function(df, dat, fact, ordered_factor = FALSE, rug, se,
         if (has_curve_groups) {
             plt <- plt + ggplot2::geom_line(
                 ggplot2::aes(group = get("curve")),
-                color = color,
+                color = curve_color,
                 alpha = curve_alpha,
                 linewidth = curve_linewidth
             )
         } else {
             plt <- plt + ggplot2::geom_line(
-                color = color,
+                color = curve_color,
                 linewidth = curve_linewidth
             )
         }

@@ -23,9 +23,9 @@
 #' predictions over sampled background rows,
 #' \deqn{h_r(z) = \frac{1}{m}\sum_{i=1}^{m}
 #'   \hat{f}_r(z, x_{-j}^{(i)});}
-#' and `method = "ale"` accumulates centred local prediction differences for
-#' numeric predictors. These definitions follow the model-agnostic PDP and ALE
-#' notation summarized by Molnar (2025).
+#' and `method = "ale"` accumulates centred local prediction differences using
+#' the same univariate ALE definitions as [univariate()]. These definitions
+#' follow the model-agnostic PDP and ALE notation summarized by Molnar (2025).
 #'
 #' The default `interval = "sd"` draws \eqn{H(z) \pm s(z)}, using the ordinary
 #' standard deviation across model curves or, with weights,
@@ -42,14 +42,15 @@
 #' @param predict_data A data frame containing values at which predictions
 #'   should be made. If `NULL`, `x` must be provided.
 #' @param fun A function used to generate predictions from the model, or a list
-#'   of functions the same length as `models`. Defaults to `predict`.
+#'   of functions the same length as `models`. If `NULL`, the generic
+#'   `predict()` is used for every model.
 #' @param ... Additional arguments passed to each prediction function. For
 #'   mixed model types with different prediction interfaces, prefer supplying
 #'   model-specific wrappers through `fun`.
 #' @param method Character, the curve type to plot. `"profile"` uses a single
 #'   reference profile, `"pdp"` averages over sampled predictor rows before
 #'   combining ensemble members, and `"ale"` draws accumulated local effects
-#'   curves for numeric predictors and ignores factor predictors with a warning.
+#'   curves.
 #' @param n Integer, number of points to sample for each numeric predictor
 #'   variable (default: 100). For `"ale"`, `n` sets the maximum number of
 #'   intervals used to estimate local effects for numeric predictors.
@@ -119,7 +120,7 @@
 #'   print(response_plot)
 #' }
 multimodel <- function(models, x = NULL, predict_data = NULL,
-                       fun = stats::predict, ...,
+                       fun = NULL, ...,
                        method = c("profile", "pdp", "ale"),
                        n = 100,
                        background_n = n,
@@ -158,7 +159,11 @@ multimodel <- function(models, x = NULL, predict_data = NULL,
     }
 
     nmod <- length(models)
-    funs <- normalize_multimodel_funs(fun, n_models = nmod)
+    funs <- normalize_multimodel_funs(
+        fun,
+        n_models = nmod,
+        env = parent.frame()
+    )
     agg <- validate_multimodel_agg(agg)
     weights <- validate_multimodel_weights(weights, n_models = nmod)
 
@@ -175,29 +180,6 @@ multimodel <- function(models, x = NULL, predict_data = NULL,
 
     x_df <- validate_predictors(x_source, sample_size = sample_size)
     predictor_names <- names(x_df)
-
-    if (method == "ale") {
-        factor_predictors <- names(x_df)[vapply(x_df, is.factor, logical(1))]
-
-        if (length(factor_predictors)) {
-            warning(
-                "ALE currently supports numeric predictors only. Ignoring factor predictors: ",
-                paste(factor_predictors, collapse = ", "),
-                call. = FALSE
-            )
-        }
-
-        predictor_names <- names(x_df)[vapply(x_df, is.numeric, logical(1))]
-
-        if (!length(predictor_names)) {
-            stop("ALE requires at least one numeric predictor to plot")
-        }
-    }
-
-    nvars <- length(predictor_names)
-
-    ncols <- if (is.null(ncols)) ceiling(sqrt(nvars)) else ncols
-    nrows <- if (is.null(nrows)) ceiling(nvars / ncols) else nrows
 
     reference_row <- if (method == "profile") build_reference_row(x_df) else NULL
     background_rows <- if (method == "pdp") {
@@ -220,6 +202,24 @@ multimodel <- function(models, x = NULL, predict_data = NULL,
         )
     })
     names(predictor_specs) <- predictor_names
+    nvars <- length(predictor_specs)
+
+    ncols <- if (is.null(ncols)) ceiling(sqrt(nvars)) else ncols
+    nrows <- if (is.null(nrows)) ceiling(nvars / ncols) else nrows
+    ale_level_orders <- if (method == "ale") {
+        derive_multimodel_ale_level_orders(
+            models = models,
+            funs = funs,
+            predictor_specs = predictor_specs,
+            ale_rows = ale_rows,
+            agg = agg,
+            weights = weights,
+            response = response,
+            ...
+        )
+    } else {
+        NULL
+    }
 
     tables <- lapply(predictor_specs, function(spec) {
         model_curves <- build_multimodel_curve_matrix(
@@ -230,6 +230,7 @@ multimodel <- function(models, x = NULL, predict_data = NULL,
             reference_row = reference_row,
             background_rows = background_rows,
             ale_rows = ale_rows,
+            ale_level_orders = ale_level_orders,
             n = n,
             response = response,
             ...
@@ -295,8 +296,9 @@ multimodel <- function(models, x = NULL, predict_data = NULL,
             color = color,
             ribcol = "grey80",
             ylim = limits,
-            curve_alpha = if (show_models) 0.2 else 1,
-            curve_linewidth = if (show_models) 0.35 else 0.7,
+            curve_color = if (show_models) "gray70" else color,
+            curve_alpha = if (show_models) 0.4 else 1,
+            curve_linewidth = if (show_models) 0.6 else 0.7,
             summary_df = table$summary,
             summary_linewidth = 1
         )
@@ -335,7 +337,8 @@ validate_multimodel_weights <- function(weights, n_models) {
 
 build_multimodel_curve_matrix <- function(models, funs, method, spec,
                                           reference_row, background_rows,
-                                          ale_rows, n, response, ...) {
+                                          ale_rows, ale_level_orders,
+                                          n, response, ...) {
     curve_tables <- lapply(seq_along(models), function(index) {
         if (method == "profile") {
             return(build_profile_curve_table(
@@ -370,6 +373,7 @@ build_multimodel_curve_matrix <- function(models, funs, method, spec,
             n = n,
             fun = funs[[index]],
             response = response,
+            level_order = ale_level_orders[[spec$name]],
             ...
         )
     })
@@ -393,6 +397,74 @@ build_multimodel_curve_matrix <- function(models, funs, method, spec,
     }
 
     list(x = x_values, mat = mat)
+}
+
+
+derive_multimodel_ale_level_orders <- function(models, funs, predictor_specs,
+                                               ale_rows, agg, weights,
+                                               response, ...) {
+    factor_specs <- predictor_specs[vapply(
+        predictor_specs,
+        function(spec) spec$is_factor && !spec$is_ordered,
+        logical(1)
+    )]
+
+    if (!length(factor_specs)) {
+        return(list())
+    }
+
+    level_orders <- lapply(factor_specs, function(spec) {
+        multimodel_ale_level_order(
+            models = models,
+            funs = funs,
+            ale_rows = ale_rows,
+            column = spec$name,
+            agg = agg,
+            weights = weights,
+            response = response,
+            ...
+        )
+    })
+    names(level_orders) <- names(factor_specs)
+
+    level_orders
+}
+
+
+multimodel_ale_level_order <- function(models, funs, ale_rows, column,
+                                       agg, weights, response, ...) {
+    x <- ale_rows[[column]]
+    observed_levels <- levels(x)[levels(x) %in% unique(as.character(x))]
+
+    if (!length(observed_levels)) {
+        return(character(0))
+    }
+
+    level_scores <- vapply(seq_along(models), function(index) {
+        preds <- extract_prediction_vector(
+            funs[[index]](models[[index]], ale_rows, ...),
+            n = nrow(ale_rows),
+            response = response
+        )
+
+        vapply(observed_levels, function(level) {
+            mean(preds[x == level])
+        }, numeric(1))
+    }, numeric(length(observed_levels)))
+
+    if (is.null(dim(level_scores))) {
+        level_scores <- matrix(level_scores, ncol = 1L)
+    }
+
+    aggregate_scores <- apply(
+        level_scores,
+        1L,
+        aggregate_multimodel_values,
+        agg = agg,
+        weights = weights
+    )
+
+    observed_levels[order(aggregate_scores, seq_along(aggregate_scores))]
 }
 
 

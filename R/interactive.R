@@ -14,7 +14,8 @@
 #' \eqn{\hat{f}(z, x_{-j}^{(i)})}, `"pdp"` plots their average
 #' \deqn{\hat{f}_{j,PDP}(z) = \frac{1}{m}\sum_{i=1}^{m}
 #'   \hat{f}(z, x_{-j}^{(i)}),}
-#' and `"ale"` plots centred accumulated local effects for numeric predictors.
+#' and `"ale"` plots centred accumulated local effects using the same
+#' univariate ALE definitions as [univariate()].
 #' When a user clicks the map, the clicked cell's covariate value is overlaid on
 #' each panel so the local environmental context can be compared with the
 #' fitted response curve and the sampled predictor distribution.
@@ -30,8 +31,8 @@
 #'   to extract covariate values at the clicked map cell.
 #' @param predict_data Optional data frame or raster used to build the response
 #'   curves. If `NULL`, `predictors` is used.
-#' @param fun A function used to generate predictions from the model. Defaults
-#'   to `predict`.
+#' @param fun A function used to generate predictions from the model. If
+#'   `NULL`, the generic `predict()` is used.
 #' @param ... Additional arguments passed to `fun`.
 #' @param n Integer, number of points to sample for each numeric predictor
 #'   variable (default: 100). For `"ale"`, `n` sets the maximum number of
@@ -61,9 +62,12 @@
 #'   reference profile, `"pdp"` averages over sampled predictor rows,
 #'   `"ice"` draws individual conditional expectation curves, `"ice+pdp"`
 #'   overlays the averaged PDP on top of the ICE curves, and `"ale"` draws
-#'   accumulated local effects curves for numeric predictors.
+#'   accumulated local effects curves.
 #' @param selected_color Character, colour used for the clicked-site marker on
 #'   the map and response curves.
+#' @param show_selected_ice Logical, whether to overlay the clicked site's
+#'   ceteris paribus / ICE curve on the response panels using `selected_color`.
+#'   Defaults to `TRUE`. Ignored when `method = "ale"`.
 #' @param crosshair Logical, whether to draw dashed horizontal and vertical
 #'   guide lines through the selected map cell. Defaults to `TRUE`.
 #' @param map_palette Character vector of colours used to draw the prediction
@@ -117,7 +121,7 @@
 #' }
 mapcurve <- function(model, map, predictors,
                      predict_data = NULL,
-                     fun = stats::predict, ...,
+                     fun = NULL, ...,
                      n = 100,
                      background_n = n,
                      interval = c("none", "quantile"),
@@ -137,6 +141,7 @@ mapcurve <- function(model, map, predictors,
                          "ale"
                      ),
                      selected_color = "deepskyblue3",
+                     show_selected_ice = TRUE,
                      crosshair = TRUE,
                      map_palette = grDevices::hcl.colors(
                          64,
@@ -147,6 +152,7 @@ mapcurve <- function(model, map, predictors,
 
     method <- match.arg(method)
     interval <- match.arg(interval)
+    fun <- resolve_predict_fun(fun, env = parent.frame())
     map_height <- 780L
 
     if (interval != "none" && method != "pdp") {
@@ -229,9 +235,13 @@ mapcurve <- function(model, map, predictors,
                 }
                 .curves-map-panel {
                     padding-right: 8px;
+                    display: flex;
+                    flex-direction: column;
                 }
                 .curves-side-panel {
                     padding-left: 8px;
+                    display: flex;
+                    flex-direction: column;
                 }
                 .curves-card {
                     background: #2d323a;
@@ -245,7 +255,8 @@ mapcurve <- function(model, map, predictors,
                 .curves-curves-card {
                     padding: 8px 10px;
                 }
-                .curves-info-box {
+                .curves-info-box,
+                .curves-legend-panel {
                     background: #2d323a;
                     border: 1px solid #424851;
                     border-radius: 12px;
@@ -254,7 +265,37 @@ mapcurve <- function(model, map, predictors,
                     gap: 16px;
                     flex-wrap: wrap;
                     margin-top: 12px;
-                    padding: 10px 14px;
+                    padding: 7px 14px;
+                    min-height: 54px;
+                    box-sizing: border-box;
+                }
+                .curves-legend-panel {
+                    align-content: center;
+                    justify-content: flex-start;
+                }
+                .curves-legend-box {
+                    display: flex;
+                    align-items: center;
+                    gap: 18px;
+                    flex-wrap: wrap;
+                    min-width: 0;
+                }
+                .curves-legend-item {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    color: #d8dde3;
+                    font-size: 0.92rem;
+                    white-space: nowrap;
+                }
+                .curves-legend-swatch {
+                    display: inline-block;
+                    width: 28px;
+                    height: 0;
+                    border-top-width: 3px;
+                    border-top-style: solid;
+                    border-radius: 999px;
+                    opacity: 0.95;
                 }
                 .curves-info-title {
                     font-weight: 700;
@@ -302,7 +343,8 @@ mapcurve <- function(model, map, predictors,
                         "curves_plot",
                         height = sprintf("%spx", curve_height)
                     )
-                )
+                ),
+                shiny::uiOutput("curves_plot_legend")
             )
         )
     )
@@ -335,8 +377,32 @@ mapcurve <- function(model, map, predictors,
             build_selection_info(selected_site(), ylab = ylab)
         })
 
+        output$curves_plot_legend <- shiny::renderUI({
+            build_curve_legend(
+                method = curve_data$method,
+                show_selected_ice = show_selected_ice,
+                curve_color = curve_data$color,
+                selected_color = selected_color
+            )
+        })
+
         output$curves_plot <- shiny::renderPlot({
             selected <- selected_site()
+            selected_curves <- build_selected_site_curves(
+                model = model,
+                selected = selected,
+                x_df = curve_data$x_df,
+                predictor_specs = curve_data$predictor_specs,
+                method = curve_data$method,
+                fun = fun,
+                response = response,
+                show_selected_ice = show_selected_ice,
+                predict_args = list(...)
+            )
+            plot_limits <- extend_curve_limits(
+                limits = curve_data$limits,
+                selected_curves = selected_curves
+            )
 
             plots <- lapply(curve_data$predictor_specs, function(spec) {
                 table <- curve_data$tables[[spec$name]]
@@ -354,7 +420,12 @@ mapcurve <- function(model, map, predictors,
                     x_name = spec$name,
                     y_name = curve_data$ylab,
                     color = curve_data$color,
-                    ylim = curve_data$limits,
+                    ylim = plot_limits,
+                    curve_color = if (identical(curve_data$method, "ice+pdp")) {
+                        "gray70"
+                    } else {
+                        curve_data$color
+                    },
                     curve_alpha = if (
                         curve_data$method %in% c("ice", "ice+pdp")
                     ) {
@@ -377,6 +448,12 @@ mapcurve <- function(model, map, predictors,
                     plt,
                     title = spec$name,
                     style = curve_style
+                )
+                plt <- add_selected_ice_curve(
+                    plot = plt,
+                    spec = spec,
+                    selected_curve = selected_curves[[spec$name]],
+                    selected_color = selected_color
                 )
                 add_selected_site_marker(
                     plot = plt,
@@ -403,6 +480,99 @@ mapcurve <- function(model, map, predictors,
     }
 
     app
+}
+
+
+build_selected_site_curves <- function(model, selected, x_df, predictor_specs,
+                                       method, fun, response,
+                                       show_selected_ice, predict_args) {
+    out <- stats::setNames(
+        vector("list", length(predictor_specs)),
+        names(predictor_specs)
+    )
+
+    if (is.null(selected) || !isTRUE(show_selected_ice) || method == "ale") {
+        return(out)
+    }
+
+    reference_row <- coerce_selected_site_row(
+        values = selected$values,
+        template = x_df
+    )
+
+    if (is.null(reference_row)) {
+        return(out)
+    }
+
+    for (spec_name in names(predictor_specs)) {
+        spec <- predictor_specs[[spec_name]]
+        out[[spec_name]] <- do.call(
+            build_profile_curve_table,
+            c(
+                list(
+                    model = model,
+                    reference_row = reference_row,
+                    column = spec$name,
+                    values = spec$values,
+                    fun = fun,
+                    response = response
+                ),
+                predict_args
+            )
+        )
+    }
+
+    out
+}
+
+
+coerce_selected_site_row <- function(values, template) {
+    cols <- lapply(names(template), function(name) {
+        value <- values[[name]]
+        column <- template[[name]]
+
+        if (is.factor(column)) {
+            return(factor(
+                as.character(value)[1],
+                levels = levels(column),
+                ordered = is.ordered(column)
+            ))
+        }
+
+        as.numeric(value)[1]
+    })
+    names(cols) <- names(template)
+
+    row <- data.frame(cols, check.names = FALSE)
+    if (!nrow(row) || !stats::complete.cases(row)) {
+        return(NULL)
+    }
+
+    row
+}
+
+
+extend_curve_limits <- function(limits, selected_curves) {
+    selected_values <- unlist(
+        lapply(selected_curves, function(df) {
+            if (is.null(df) || !"y" %in% names(df)) {
+                return(numeric(0))
+            }
+
+            df$y
+        }),
+        use.names = FALSE
+    )
+
+    selected_values <- selected_values[is.finite(selected_values)]
+    if (!length(selected_values)) {
+        return(limits)
+    }
+
+    c(
+        min(limits[1], min(selected_values)),
+        max(limits[2], max(selected_values))
+    )
 }
 
 
@@ -459,24 +629,6 @@ prepare_interactive_curve_data <- function(model, x_source, fun, ...,
 
     x_df <- validate_predictors(x_source, sample_size = sample_size)
     predictor_names <- names(x_df)
-
-    if (method == "ale") {
-        factor_predictors <- names(x_df)[vapply(x_df, is.factor, logical(1))]
-
-        if (length(factor_predictors)) {
-            warning(
-                "ALE currently supports numeric predictors only. Ignoring factor predictors: ",
-                paste(factor_predictors, collapse = ", "),
-                call. = FALSE
-            )
-        }
-
-        predictor_names <- names(x_df)[vapply(x_df, is.numeric, logical(1))]
-
-        if (!length(predictor_names)) {
-            stop("ALE requires at least one numeric predictor to plot")
-        }
-    }
 
     reference_row <- if (method == "profile") build_reference_row(x_df) else NULL
     background_rows <- if (method %in% c("pdp", "ice", "ice+pdp")) {
@@ -615,7 +767,7 @@ prepare_interactive_curve_data <- function(model, x_source, fun, ...,
 
 
 interactive_curve_plot_height <- function(map_height) {
-    as.integer(map_height)
+    as.integer(map_height + 8L)
 }
 
 
@@ -785,6 +937,108 @@ build_selection_info <- function(selection, ylab) {
 }
 
 
+build_curve_legend <- function(method, show_selected_ice, curve_color,
+                               selected_color) {
+    items <- list()
+
+    if (method == "profile") {
+        items[[length(items) + 1L]] <- legend_item(
+            "Model curve",
+            curve_color,
+            linetype = "solid"
+        )
+    } else if (method == "pdp") {
+        items[[length(items) + 1L]] <- legend_item(
+            "PDP",
+            curve_color,
+            linetype = "solid"
+        )
+    } else if (method == "ale") {
+        items[[length(items) + 1L]] <- legend_item(
+            "ALE",
+            curve_color,
+            linetype = "solid"
+        )
+    } else if (method == "ice") {
+        items[[length(items) + 1L]] <- legend_item(
+            "ICE curves",
+            curve_color,
+            linetype = "solid",
+            alpha = 0.6
+        )
+    } else if (method == "ice+pdp") {
+        items[[length(items) + 1L]] <- legend_item(
+            "PDP",
+            curve_color,
+            linetype = "solid"
+        )
+        items[[length(items) + 1L]] <- legend_item(
+            "Background ICE",
+            "gray70",
+            linetype = "solid",
+            alpha = 0.55
+        )
+    }
+
+    if (isTRUE(show_selected_ice) && method != "ale") {
+        items[[length(items) + 1L]] <- legend_item(
+            "Selected pixel ICE",
+            selected_color,
+            linetype = "solid"
+        )
+    }
+
+    items[[length(items) + 1L]] <- legend_item(
+        "Selected value",
+        grDevices::adjustcolor(selected_color, alpha.f = 0.72),
+        linetype = "dashed"
+    )
+
+    shiny::div(
+        class = "curves-legend-panel",
+        shiny::span("Curve legend", class = "curves-info-title"),
+        shiny::div(
+            class = "curves-legend-box",
+            items
+        )
+    )
+}
+
+
+legend_item <- function(label, color, linetype = c("solid", "dashed"),
+                        alpha = 0.95) {
+    linetype <- match.arg(linetype)
+    color <- css_color(color)
+    style <- sprintf(
+        "border-top-color:%s;border-top-style:%s;border-top-width:3px;opacity:%s;",
+        color,
+        if (identical(linetype, "dashed")) "dashed" else "solid",
+        format(alpha, trim = TRUE)
+    )
+    if (identical(linetype, "dashed")) {
+        style <- paste0(style, "border-image:none;")
+    }
+
+    shiny::div(
+        class = "curves-legend-item",
+        shiny::span(class = "curves-legend-swatch", style = style),
+        shiny::span(label)
+    )
+}
+
+
+css_color <- function(color) {
+    rgb <- grDevices::col2rgb(color, alpha = TRUE)
+    grDevices::rgb(
+        red = rgb[1, 1],
+        green = rgb[2, 1],
+        blue = rgb[3, 1],
+        alpha = rgb[4, 1],
+        maxColorValue = 255
+    )
+}
+
+
 style_interactive_curve_plot <- function(plot, title, style) {
     plot +
         ggplot2::labs(title = title, x = NULL, y = NULL) +
@@ -850,28 +1104,65 @@ add_selected_site_marker <- function(plot, spec, table, selected,
     if (!spec$is_factor) {
         return(plot + ggplot2::geom_vline(
             xintercept = as.numeric(selected_value),
-            color = selected_color,
-            linewidth = 0.8,
-            alpha = 0.95
+            color = grDevices::adjustcolor(selected_color, alpha.f = 0.72),
+            linewidth = 0.65,
+            linetype = "dashed"
         ))
     }
 
-    marker_df <- selected_factor_marker_df(table, selected_value)
-    if (is.null(marker_df)) {
+    selected_position <- selected_factor_position(table, selected_value)
+    if (is.null(selected_position)) {
         return(plot)
     }
 
-    plot + ggplot2::geom_point(
-        data = marker_df,
-        ggplot2::aes(x = x, y = y),
-        color = selected_color,
-        size = 2.8,
+    plot + ggplot2::geom_vline(
+        xintercept = selected_position,
+        color = grDevices::adjustcolor(selected_color, alpha.f = 0.72),
+        linewidth = 0.65,
+        linetype = "dashed",
         inherit.aes = FALSE
     )
 }
 
 
-selected_factor_marker_df <- function(table, selected_value) {
+add_selected_ice_curve <- function(plot, spec, selected_curve, selected_color) {
+    if (is.null(selected_curve) || !nrow(selected_curve)) {
+        return(plot)
+    }
+
+    if (!spec$is_factor) {
+        return(plot + ggplot2::geom_line(
+            data = selected_curve,
+            ggplot2::aes(x = x, y = y),
+            color = selected_color,
+            linewidth = 0.58,
+            alpha = 0.94,
+            inherit.aes = FALSE
+        ))
+    }
+
+    if (spec$is_ordered) {
+        plot <- plot + ggplot2::geom_line(
+            data = selected_curve,
+            ggplot2::aes(x = x, y = y, group = 1),
+            color = selected_color,
+            linewidth = 0.58,
+            alpha = 0.94,
+            inherit.aes = FALSE
+        )
+    }
+
+    plot + ggplot2::geom_point(
+        data = selected_curve,
+        ggplot2::aes(x = x, y = y),
+        color = selected_color,
+        size = 2.4,
+        inherit.aes = FALSE
+    )
+}
+
+
+selected_factor_position <- function(table, selected_value) {
     curve_df <- if (!is.null(table$summary)) {
         table$summary
     } else if ("curve" %in% names(table$curves)) {
@@ -885,11 +1176,10 @@ selected_factor_marker_df <- function(table, selected_value) {
     }
 
     selected_level <- as.character(selected_value)[1]
-    keep <- as.character(curve_df$x) == selected_level
-
-    if (!any(keep)) {
+    position <- match(selected_level, levels(curve_df$x))
+    if (is.na(position)) {
         return(NULL)
     }
 
-    curve_df[which(keep)[1], c("x", "y"), drop = FALSE]
+    position
 }

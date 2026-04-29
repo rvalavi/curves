@@ -130,7 +130,75 @@ test_that("bivariate ale helper returns zero surface for additive models", {
         response = NULL
     )
 
-    expect_true(max(abs(table$z)) < 1e-10)
+    expect_true(max(abs(table$z), na.rm = TRUE) < 1e-10)
+    # Every cell of the regular grid should be supported, so nothing is masked.
+    expect_false(anyNA(table$z))
+    expect_true(all(table$count > 0L))
+})
+
+
+test_that("bivariate ale masks cells with no observations", {
+    # x1 and x2 are perfectly correlated, so the off-diagonal cells contain
+    # no observations and must be flagged as unsupported, not extrapolated.
+    set.seed(7)
+    n <- 200
+    predictors <- data.frame(
+        x1 = seq(0, 1, length.out = n),
+        x3 = stats::runif(n)
+    )
+    predictors$x2 <- predictors$x1
+    spec <- curves:::build_pair_specs(
+        predictors,
+        pairs = c("x1", "x2"),
+        n = 8,
+        method = "ale"
+    )[[1]]
+
+    table <- curves:::build_ale_surface_table(
+        model = NULL,
+        ale_rows = predictors,
+        spec = spec,
+        fun = function(model, newdata) newdata$x1 * newdata$x2 + newdata$x3,
+        response = NULL
+    )
+
+    expect_true(any(table$count == 0L))
+    expect_true(all(is.na(table$z[table$count == 0L])))
+    expect_true(all(!is.na(table$z[table$count > 0L])))
+})
+
+
+test_that("bivariate ale heatmaps render unsupported cells without warning", {
+    set.seed(9)
+    n <- 300
+    predictors <- data.frame(
+        x1 = stats::runif(n),
+        x3 = stats::rnorm(n)
+    )
+    # Strong correlation -> off-diagonal grid cells unsupported.
+    predictors$x2 <- predictors$x1 + stats::rnorm(n, sd = 0.02)
+
+    model <- lm(I(x1 * x2 + x3) ~ x1 + x2 + x3, data = predictors)
+
+    plot <- bivariate(
+        model,
+        x = predictors,
+        pairs = c("x1", "x2"),
+        method = "ale",
+        n = 8
+    )
+
+    expect_s3_class(plot, "ggplot")
+    # NA z values must reach the plotting data so they can be rendered
+    # in the fill scale's `na.value` rather than as a confident estimate.
+    plot_data <- plot$data
+    if (is.null(plot_data) ||
+        !is.data.frame(plot_data) ||
+        !nrow(plot_data)) {
+        plot_data <- plot$layers[[1]]$data
+    }
+    expect_true(is.data.frame(plot_data))
+    expect_true(anyNA(plot_data$z))
 })
 
 

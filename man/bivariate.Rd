@@ -9,7 +9,7 @@ bivariate(
   x = NULL,
   predict_data = NULL,
   pairs = NULL,
-  fun = stats::predict,
+  fun = NULL,
   ...,
   n = 40,
   background_n = n,
@@ -38,20 +38,23 @@ should be made. If \code{NULL}, \code{x} must be provided.}
 for a single pair, or a list/data frame/matrix of pairs. Numeric pairs are
 interpreted as predictor column indices.}
 
-\item{fun}{A function used to generate predictions from the model. Defaults
-to \code{predict}.}
+\item{fun}{A function used to generate predictions from the model. If
+\code{NULL}, the generic \code{predict()} is used.}
 
 \item{...}{Additional arguments passed to \code{fun}.}
 
 \item{n}{Integer, number of points to sample for each numeric predictor
 variable (default: 40). For \code{"ale"}, \code{n} sets the maximum number of
-intervals used to estimate local effects for each numeric predictor.}
+intervals used to estimate local effects for each numeric predictor and
+defaults to 10, since the second-order surface uses an \verb{n x n} cell
+grid and finer grids tend to leave most cells unsupported by data.}
 
 \item{background_n}{Integer, number of randomly sampled background rows used
 for \code{"pdp"} (default: \code{n}).}
 
 \item{rug}{Logical, whether to add a marginal rug for numeric predictor pairs
-in static plots (default: \code{FALSE}).}
+in static plots (default: \code{FALSE}, but \code{TRUE} for \code{method = "ale"} so
+users can see which cells are supported by data).}
 
 \item{plot_type}{Character, plot type. Use \code{"heatmap"} for a static surface,
 \code{"contour"} for filled contours, or \code{"surface"} for an interactive 3D
@@ -116,10 +119,19 @@ second-order local effect is the mean corner contrast
    \hat{f}(z_{k-1}, w_l, x_C^{(i)}) -
    \hat{f}(z_k, w_{l-1}, x_C^{(i)}) +
    \hat{f}(z_{k-1}, w_{l-1}, x_C^{(i)})].}
-The cell effects are accumulated over the grid and centred by removing the
-row, column, and overall means. The resulting surface is a second-order ALE
-estimate: it is intended to show the additional interaction effect of the two
-predictors after their main effects have been removed.
+The cell effects are accumulated over the grid using a half-cell correction
+that places each value at the cell centre, then centred by removing the
+(count-weighted) row, column, and overall means. The resulting surface is a
+centred second-order ALE estimate: it shows the additional \strong{interaction
+effect} of the two predictors after their first-order main effects have
+been removed.
+
+Cells that contain no observations are treated as unsupported: the cell
+effect is interpolated from neighbouring cells so the accumulation can run,
+but the cell is masked (\code{NA}) in the returned surface and rendered in
+\code{na.value} (default light grey) in the plot. This avoids extrapolating the
+interaction surface into regions of feature space that are not represented
+by the data, which is critical when predictors are correlated.
 }
 \examples{
 data(iris)

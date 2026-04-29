@@ -25,6 +25,19 @@ test_that("univariate handles factor predictors", {
 })
 
 
+test_that("univariate resolves default predict from the caller context", {
+    predictor_data <- data.frame(x1 = c(0, 1, 2))
+    model <- structure(list(offset = 10), class = "dummy_predict_model")
+
+    predict <- function(object, newdata, ...) {
+        newdata$x1 + object$offset
+    }
+
+    fun <- curves:::resolve_predict_fun(NULL, env = environment())
+    expect_equal(fun(model, predictor_data), c(10, 11, 12))
+})
+
+
 test_that("univariate supports pdp and ice-based methods", {
     model <- lm(
         Sepal.Length ~ Sepal.Width + Petal.Length + Petal.Width,
@@ -71,16 +84,15 @@ test_that("univariate uses a method-specific default y-axis label", {
 })
 
 
-test_that("univariate ale warns and skips factor predictors", {
+test_that("univariate ale includes factor predictors without warning", {
     model <- lm(Sepal.Length ~ Species + Petal.Width, data = iris)
 
-    expect_warning(
+    expect_no_warning(
         plot <- univariate(
             model,
             x = iris[, c("Species", "Petal.Width")],
             method = "ale"
-        ),
-        "Ignoring factor predictors: Species"
+        )
     )
 
     expect_s3_class(plot, "ggplot")
@@ -234,20 +246,18 @@ test_that("ale helper accumulates and centers local effects", {
 })
 
 
-test_that("univariate ale errors when no numeric predictors remain", {
+test_that("univariate ale works with only factor predictors", {
     model <- lm(Sepal.Length ~ Species, data = iris)
 
-    expect_warning(
-        expect_error(
-            univariate(
-                model,
-                x = iris["Species"],
-                method = "ale"
-            ),
-            "ALE requires at least one numeric predictor"
-        ),
-        "Ignoring factor predictors: Species"
+    expect_no_warning(
+        plot <- univariate(
+            model,
+            x = iris["Species"],
+            method = "ale"
+        )
     )
+
+    expect_s3_class(plot, "ggplot")
 })
 
 
@@ -301,6 +311,34 @@ test_that("ordered factor summaries still use connecting lines", {
 
     geom_classes <- vapply(plot$layers, function(layer) class(layer$geom)[1], character(1))
     expect_true("GeomLine" %in% geom_classes)
+})
+
+
+test_that("thin grouped curves can use a separate colour from summaries", {
+    plot <- curves:::plot_1D(
+        df = data.frame(
+            x = c(1, 2, 1, 2),
+            y = c(1, 2, 2, 3),
+            curve = c(1, 1, 2, 2)
+        ),
+        dat = NULL,
+        fact = FALSE,
+        rug = FALSE,
+        se = FALSE,
+        x_name = "x",
+        y_name = "y",
+        ylim = c(0, 4),
+        color = "deepskyblue4",
+        curve_color = "gray70",
+        curve_linewidth = 0.35,
+        summary_df = data.frame(x = c(1, 2), y = c(1.5, 2.5)),
+        summary_linewidth = 1
+    )
+
+    expect_equal(plot$layers[[1]]$aes_params$colour, "gray70")
+    expect_equal(plot$layers[[1]]$aes_params$linewidth, 0.35)
+    expect_equal(plot$layers[[2]]$aes_params$colour, "deepskyblue4")
+    expect_equal(plot$layers[[2]]$aes_params$linewidth, 1)
 })
 
 

@@ -9,7 +9,7 @@ mapcurve(
   map,
   predictors,
   predict_data = NULL,
-  fun = stats::predict,
+  fun = NULL,
   ...,
   n = 100,
   background_n = n,
@@ -24,6 +24,7 @@ mapcurve(
   ncols = 2,
   method = c("profile", "pdp", "ice", "ice+pdp", "ale"),
   selected_color = "deepskyblue3",
+  show_selected_ice = TRUE,
   crosshair = TRUE,
   map_palette = grDevices::hcl.colors(64, "Inferno"),
   map_title = "Prediction map",
@@ -42,8 +43,8 @@ to extract covariate values at the clicked map cell.}
 \item{predict_data}{Optional data frame or raster used to build the response
 curves. If \code{NULL}, \code{predictors} is used.}
 
-\item{fun}{A function used to generate predictions from the model. Defaults
-to \code{predict}.}
+\item{fun}{A function used to generate predictions from the model. If
+\code{NULL}, the generic \code{predict()} is used.}
 
 \item{...}{Additional arguments passed to \code{fun}.}
 
@@ -86,10 +87,14 @@ to \code{2} so the response-curve panel stays closer to the map height.}
 reference profile, \code{"pdp"} averages over sampled predictor rows,
 \code{"ice"} draws individual conditional expectation curves, \code{"ice+pdp"}
 overlays the averaged PDP on top of the ICE curves, and \code{"ale"} draws
-accumulated local effects curves for numeric predictors.}
+accumulated local effects curves.}
 
 \item{selected_color}{Character, colour used for the clicked-site marker on
 the map and response curves.}
+
+\item{show_selected_ice}{Logical, whether to overlay the clicked site's
+ceteris paribus / ICE curve on the response panels using \code{selected_color}.
+Defaults to \code{TRUE}. Ignored when \code{method = "ale"}.}
 
 \item{crosshair}{Logical, whether to draw dashed horizontal and vertical
 guide lines through the selected map cell. Defaults to \code{TRUE}.}
@@ -120,7 +125,8 @@ predictor \eqn{x_j}, \code{"profile"} uses a reference-row curve
 \eqn{\hat{f}(z, x_{-j}^{(i)})}, \code{"pdp"} plots their average
 \deqn{\hat{f}_{j,PDP}(z) = \frac{1}{m}\sum_{i=1}^{m}
   \hat{f}(z, x_{-j}^{(i)}),}
-and \code{"ale"} plots centred accumulated local effects for numeric predictors.
+and \code{"ale"} plots centred accumulated local effects using the same
+univariate ALE definitions as \code{\link[=univariate]{univariate()}}.
 When a user clicks the map, the clicked cell's covariate value is overlaid on
 each panel so the local environmental context can be compared with the
 fitted response curve and the sampled predictor distribution.

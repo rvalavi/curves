@@ -133,8 +133,8 @@ curves::univariate(
 
 ALE curves accumulate local finite differences within the observed predictor
 distribution, which often makes them less sensitive than PDPs to strongly
-correlated predictors. In `curves`, ALE is currently plotted for numeric
-predictors; factor predictors are ignored with a warning.
+correlated predictors. In `curves`, univariate ALE supports both numeric and
+factor predictors; this example focuses on numeric covariates.
 
 ```{r, eval = species_example, fig.height = 8, message = FALSE, warning = FALSE}
 curves::univariate(

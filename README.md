@@ -31,9 +31,9 @@ A few practical details are worth calling out:
 
 - Predictor inputs can be ordinary data frames or `terra::SpatRaster`
   objects.
-- Numeric and factor predictors are supported. For `method = "ale"`, factor
-  predictors or predictor pairs are currently ignored with a warning and only
-  numeric effects are plotted.
+- Numeric and factor predictors are supported. Univariate ALE summaries now
+  support both numeric and factor predictors, while bivariate ALE remains
+  limited to numeric predictor pairs.
 - If `predict()` returns multiple columns, `response` can be used to choose
   the column to plot.
 - Static plots return `ggplot2` objects, so they can be styled or combined in

@@ -8,7 +8,7 @@ univariate(
   model,
   x = NULL,
   predict_data = NULL,
-  fun = stats::predict,
+  fun = NULL,
   ...,
   n = 100,
   background_n = n,
@@ -33,8 +33,8 @@ univariate(
 \item{predict_data}{A data frame containing values at which predictions
 should be made. If \code{NULL}, \code{x} must be provided.}
 
-\item{fun}{A function used to generate predictions from the model. Defaults
-to \code{predict}.}
+\item{fun}{A function used to generate predictions from the model. If
+\code{NULL}, the generic \code{predict()} is used.}
 
 \item{...}{Additional arguments passed to \code{fun}.}
 
@@ -79,8 +79,7 @@ automatically determined.}
 reference profile, \code{"pdp"} averages over sampled predictor rows,
 \code{"ice"} draws individual conditional expectation curves, and \code{"ice+pdp"}
 overlays the averaged PDP on top of the ICE curves. \code{"ale"} draws
-accumulated local effects curves for numeric predictors and ignores factor
-predictors with a warning.}
+accumulated local effects curves.}
 }
 \value{
 A \code{ggplot2} object containing the response curves arranged in a grid.

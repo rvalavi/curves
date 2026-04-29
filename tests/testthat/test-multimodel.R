@@ -37,7 +37,7 @@ test_that("multimodel supports pdp, ale, and model overlays", {
 
     expect_s3_class(pdp_plot, "ggplot")
 
-    expect_warning(
+    expect_no_warning(
         ale_plot <- multimodel(
             list(
                 lm(Sepal.Length ~ Species + Sepal.Width, data = iris),
@@ -46,11 +46,36 @@ test_that("multimodel supports pdp, ale, and model overlays", {
             x = iris[, c("Species", "Sepal.Width", "Petal.Length")],
             method = "ale",
             n = 15
-        ),
-        "Ignoring factor predictors: Species"
+        )
     )
 
     expect_s3_class(ale_plot, "ggplot")
+})
+
+
+test_that("multimodel ale supports unordered factor predictors", {
+    x_df <- data.frame(
+        grp = factor(c("a", "a", "b", "b", "c", "c")),
+        check.names = FALSE
+    )
+
+    plot <- multimodel(
+        models = list(structure(list(id = 1), class = "dummy"),
+                      structure(list(id = 2), class = "dummy")),
+        x = x_df,
+        method = "ale",
+        interval = "none",
+        fun = list(
+            function(model, newdata) {
+                c(a = 0, b = 1, c = 2)[as.character(newdata$grp)]
+            },
+            function(model, newdata) {
+                c(a = 2, b = 1, c = 0)[as.character(newdata$grp)]
+            }
+        )
+    )
+
+    expect_s3_class(plot, "ggplot")
 })
 
 
