@@ -1,7 +1,7 @@
 Package: curves
 Type: Package
 Title: Model-Agnostic Response Curves for Fitted Models
-Version: 0.3.0
+Version: 0.3.1
 Authors@R: c(
     person(
       "Roozbeh", "Valavi",
@@ -9,8 +9,6 @@ Authors@R: c(
       role = c("aut", "cre")
     )
   )
-Author: Roozbeh Valavi [aut, cre]
-Maintainer: Roozbeh Valavi <valavi.r@gmail.com>
 Description: Create model-agnostic response-curve diagnostics for fitted
     prediction models. Supports profile curves, partial dependence,
     individual conditional expectation, and accumulated local effects;

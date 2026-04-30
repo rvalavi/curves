@@ -10,7 +10,7 @@ multimodel(
   predict_data = NULL,
   fun = NULL,
   ...,
-  method = c("profile", "pdp", "ale"),
+  method = c("pdp", "ale", "profile"),
   n = 100,
   background_n = n,
   agg = mean,

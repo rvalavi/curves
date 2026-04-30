@@ -4,3 +4,8 @@
 ^\.github$
 ^\.gitignore$
 ^\.\.Rcheck$
+^curves\.Rcheck$
+^\.RData$
+^\.Rhistory$
+^\.DS_Store$
+^curves_.*\.tar\.gz$

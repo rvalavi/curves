@@ -22,7 +22,7 @@ mapcurve(
   response = NULL,
   nrows = NULL,
   ncols = 2,
-  method = c("profile", "pdp", "ice", "ice+pdp", "ale"),
+  method = c("pdp", "ice", "ice+pdp", "ale", "profile"),
   selected_color = "deepskyblue3",
   show_selected_ice = TRUE,
   crosshair = TRUE,

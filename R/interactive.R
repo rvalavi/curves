@@ -134,11 +134,11 @@ mapcurve <- function(model, map, predictors,
                      nrows = NULL,
                      ncols = 2,
                      method = c(
-                         "profile",
                          "pdp",
                          "ice",
                          "ice+pdp",
-                         "ale"
+                         "ale",
+                         "profile"
                      ),
                      selected_color = "deepskyblue3",
                      show_selected_ice = TRUE,
@@ -889,7 +889,7 @@ plot_prediction_map <- function(map, selection, palette, title, marker_color,
                 h = selection$y,
                 col = guide_color,
                 lty = 3,
-                lwd = 0.95
+                lwd = 1.5
             )
         }
 

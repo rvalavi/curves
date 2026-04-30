@@ -1,4 +1,4 @@
-# curves 0.3.1 (development)
+# curves 0.3.1
 
 ## Fixes
 

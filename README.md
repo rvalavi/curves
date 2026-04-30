@@ -71,16 +71,14 @@ model <- lm(
 
 predictors <- iris[, c("Sepal.Width", "Petal.Length", "Petal.Width")]
 
-# Single-profile response curves
+# Partial dependence curves (default)
 univariate(model, predictors)
 
-# Partial dependence curves
+# Single-profile response curves
 univariate(
   model,
   predictors,
-  method = "pdp",
-  n = 50,
-  background_n = 200
+  method = "profile"
 )
 
 # Accumulated local effects curves
@@ -91,7 +89,6 @@ bivariate(
   model,
   predictors,
   pairs = c("Sepal.Width", "Petal.Length"),
-  method = "pdp",
   background_n = 50,
   rug = TRUE,
   plot_type = "heatmap"
@@ -117,7 +114,6 @@ models <- list(
 multimodel(
   models,
   predictors[, c("Sepal.Width", "Petal.Length")],
-  method = "pdp",
   background_n = 200,
   show_models = TRUE
 )

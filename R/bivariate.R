@@ -152,7 +152,7 @@ bivariate <- function(model, x = NULL, predict_data = NULL, pairs = NULL,
                       palette = "viridis",
                       response = NULL,
                       nrows = NULL, ncols = NULL,
-                      method = c("profile", "pdp", "ale")) {
+                      method = c("pdp", "ale", "profile")) {
 
     plot_type <- match.arg(plot_type)
     method <- match.arg(method)

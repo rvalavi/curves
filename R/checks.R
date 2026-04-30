@@ -12,4 +12,4 @@
 }
 
 
-utils::globalVariables(c("std", "var", "x", "y", "z"))
+utils::globalVariables(c("curve", "std", "var", "x", "xmax", "xmin", "y", "ymax", "ymin", "z"))

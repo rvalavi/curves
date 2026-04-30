@@ -152,7 +152,7 @@ univariate <- function(model, x = NULL,
                        response = NULL,
                        nrows = NULL,
                        ncols = NULL,
-                       method = c("profile", "pdp", "ice", "ice+pdp", "ale")) {
+                       method = c("pdp", "ice", "ice+pdp", "ale", "profile")) {
 
     method <- match.arg(method)
     interval <- match.arg(interval)

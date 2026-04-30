@@ -21,7 +21,7 @@ univariate(
   response = NULL,
   nrows = NULL,
   ncols = NULL,
-  method = c("profile", "pdp", "ice", "ice+pdp", "ale")
+  method = c("pdp", "ice", "ice+pdp", "ale", "profile")
 )
 }
 \arguments{

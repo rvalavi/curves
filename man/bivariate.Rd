@@ -21,7 +21,7 @@ bivariate(
   response = NULL,
   nrows = NULL,
   ncols = NULL,
-  method = c("profile", "pdp", "ale")
+  method = c("pdp", "ale", "profile")
 )
 }
 \arguments{
