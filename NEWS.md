@@ -18,6 +18,9 @@
 - Enabled categorical ALE in `multimodel()` and `mapcurve()`, matching the
   univariate ALE support and using a shared level order across ensemble
   members when `multimodel()` averages unordered factor effects.
+- Added `extrapolate = FALSE` to `bivariate()` so unsupported ALE grid cells
+  remain masked by default but can be shown on request using the interpolated
+  values already used internally for accumulation.
 
 # curves 0.3.0
 

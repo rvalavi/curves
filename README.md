@@ -95,15 +95,17 @@ bivariate(
 )
 ```
 
-For ensemble modelling, pass a list of fitted models to `multimodel()`. The
-ensemble members should be fitted to the same response and compatible
-predictors, and their predictions should be on the same response scale. If a
-set of models shares the same prediction interface, pass non-default
-prediction arguments through `...`. For mixed model types, supply `fun` as a
-list of wrappers, one per model. If a shared prediction function returns
-multiple prediction columns, either set `response` or provide a small wrapper
-through `fun`. Use `agg`, `weights`, `interval`, and `show_models` to control
-how the ensemble curves are combined and displayed.
+For ensemble modelling or repeated-fit comparisons, pass a list of fitted
+models to `multimodel()`. This is useful not only for formal ensembles, but
+also for cross-validation folds, bootstrap or bagged refits, and models fit
+with different background samples or closely related training sets. The models
+should share compatible predictors, and their predictions should be on the
+same response scale. If a set of models shares the same prediction interface,
+pass non-default prediction arguments through `...`. For mixed model types,
+supply `fun` as a list of wrappers, one per model. If a shared prediction
+function returns multiple prediction columns, either set `response` or provide
+a small wrapper through `fun`. Use `agg`, `weights`, `interval`, and
+`show_models` to control how the model curves are combined and displayed.
 
 ```r
 models <- list(

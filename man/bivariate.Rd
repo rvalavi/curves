@@ -13,6 +13,7 @@ bivariate(
   ...,
   n = 40,
   background_n = n,
+  extrapolate = FALSE,
   rug = FALSE,
   plot_type = c("heatmap", "contour", "surface"),
   zlab = "Prediction",
@@ -51,6 +52,10 @@ grid and finer grids tend to leave most cells unsupported by data.}
 
 \item{background_n}{Integer, number of randomly sampled background rows used
 for \code{"pdp"} (default: \code{n}).}
+
+\item{extrapolate}{Logical, whether \code{method = "ale"} should display
+interpolated values for unsupported grid cells that contain no
+observations (default: \code{FALSE}). Ignored for other methods.}
 
 \item{rug}{Logical, whether to add a marginal rug for numeric predictor pairs
 in static plots (default: \code{FALSE}, but \code{TRUE} for \code{method = "ale"} so
@@ -124,14 +129,20 @@ that places each value at the cell centre, then centred by removing the
 (count-weighted) row, column, and overall means. The resulting surface is a
 centred second-order ALE estimate: it shows the additional \strong{interaction
 effect} of the two predictors after their first-order main effects have
-been removed.
+been removed. Positive values indicate predictor combinations where the
+model response is higher than would be expected from adding the two
+first-order ALE effects alone, negative values indicate combinations where
+the joint effect is lower than that additive expectation, and values near
+zero indicate little additional interaction.
 
 Cells that contain no observations are treated as unsupported: the cell
 effect is interpolated from neighbouring cells so the accumulation can run,
-but the cell is masked (\code{NA}) in the returned surface and rendered in
-\code{na.value} (default light grey) in the plot. This avoids extrapolating the
-interaction surface into regions of feature space that are not represented
-by the data, which is critical when predictors are correlated.
+but, by default, the cell is masked (\code{NA}) in the returned surface and
+rendered in \code{na.value} (default light grey) in the plot. This avoids
+extrapolating the interaction surface into regions of feature space that are
+not represented by the data, which is critical when predictors are
+correlated. Set \code{extrapolate = TRUE} to plot the interpolated values for
+unsupported cells instead.
 }
 \examples{
 data(iris)

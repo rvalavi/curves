@@ -158,6 +158,7 @@ test_that("bivariate ale masks cells with no observations", {
         model = NULL,
         ale_rows = predictors,
         spec = spec,
+        extrapolate = FALSE,
         fun = function(model, newdata) newdata$x1 * newdata$x2 + newdata$x3,
         response = NULL
     )
@@ -165,6 +166,35 @@ test_that("bivariate ale masks cells with no observations", {
     expect_true(any(table$count == 0L))
     expect_true(all(is.na(table$z[table$count == 0L])))
     expect_true(all(!is.na(table$z[table$count > 0L])))
+})
+
+
+test_that("bivariate ale can extrapolate unsupported cells when requested", {
+    set.seed(7)
+    n <- 200
+    predictors <- data.frame(
+        x1 = seq(0, 1, length.out = n),
+        x3 = stats::runif(n)
+    )
+    predictors$x2 <- predictors$x1
+    spec <- curves:::build_pair_specs(
+        predictors,
+        pairs = c("x1", "x2"),
+        n = 8,
+        method = "ale"
+    )[[1]]
+
+    table <- curves:::build_ale_surface_table(
+        model = NULL,
+        ale_rows = predictors,
+        spec = spec,
+        extrapolate = TRUE,
+        fun = function(model, newdata) newdata$x1 * newdata$x2 + newdata$x3,
+        response = NULL
+    )
+
+    expect_true(any(table$count == 0L))
+    expect_false(anyNA(table$z))
 })
 
 
@@ -199,6 +229,38 @@ test_that("bivariate ale heatmaps render unsupported cells without warning", {
     }
     expect_true(is.data.frame(plot_data))
     expect_true(anyNA(plot_data$z))
+})
+
+
+test_that("bivariate ale heatmaps can show extrapolated unsupported cells", {
+    set.seed(9)
+    n <- 300
+    predictors <- data.frame(
+        x1 = stats::runif(n),
+        x3 = stats::rnorm(n)
+    )
+    predictors$x2 <- predictors$x1 + stats::rnorm(n, sd = 0.02)
+
+    model <- lm(I(x1 * x2 + x3) ~ x1 + x2 + x3, data = predictors)
+
+    plot <- bivariate(
+        model,
+        x = predictors,
+        pairs = c("x1", "x2"),
+        method = "ale",
+        n = 8,
+        extrapolate = TRUE
+    )
+
+    expect_s3_class(plot, "ggplot")
+    plot_data <- plot$data
+    if (is.null(plot_data) ||
+        !is.data.frame(plot_data) ||
+        !nrow(plot_data)) {
+        plot_data <- plot$layers[[1]]$data
+    }
+    expect_true(is.data.frame(plot_data))
+    expect_false(anyNA(plot_data$z))
 })
 
 

@@ -34,14 +34,20 @@
 #' (count-weighted) row, column, and overall means. The resulting surface is a
 #' centred second-order ALE estimate: it shows the additional **interaction
 #' effect** of the two predictors after their first-order main effects have
-#' been removed.
+#' been removed. Positive values indicate predictor combinations where the
+#' model response is higher than would be expected from adding the two
+#' first-order ALE effects alone, negative values indicate combinations where
+#' the joint effect is lower than that additive expectation, and values near
+#' zero indicate little additional interaction.
 #'
 #' Cells that contain no observations are treated as unsupported: the cell
 #' effect is interpolated from neighbouring cells so the accumulation can run,
-#' but the cell is masked (`NA`) in the returned surface and rendered in
-#' `na.value` (default light grey) in the plot. This avoids extrapolating the
-#' interaction surface into regions of feature space that are not represented
-#' by the data, which is critical when predictors are correlated.
+#' but, by default, the cell is masked (`NA`) in the returned surface and
+#' rendered in `na.value` (default light grey) in the plot. This avoids
+#' extrapolating the interaction surface into regions of feature space that are
+#' not represented by the data, which is critical when predictors are
+#' correlated. Set `extrapolate = TRUE` to plot the interpolated values for
+#' unsupported cells instead.
 #'
 #' @param model A fitted model object that supports prediction.
 #' @param x A data frame or raster containing predictor variables. If
@@ -62,6 +68,9 @@
 #'   grid and finer grids tend to leave most cells unsupported by data.
 #' @param background_n Integer, number of randomly sampled background rows used
 #'   for `"pdp"` (default: `n`).
+#' @param extrapolate Logical, whether `method = "ale"` should display
+#'   interpolated values for unsupported grid cells that contain no
+#'   observations (default: `FALSE`). Ignored for other methods.
 #' @param rug Logical, whether to add a marginal rug for numeric predictor pairs
 #'   in static plots (default: `FALSE`, but `TRUE` for `method = "ale"` so
 #'   users can see which cells are supported by data).
@@ -146,7 +155,7 @@
 #' }
 bivariate <- function(model, x = NULL, predict_data = NULL, pairs = NULL,
                       fun = NULL, ..., n = 40,
-                      background_n = n, rug = FALSE,
+                      background_n = n, extrapolate = FALSE, rug = FALSE,
                       plot_type = c("heatmap", "contour", "surface"),
                       zlab = "Prediction", bins = 8,
                       palette = "viridis",
@@ -167,6 +176,11 @@ bivariate <- function(model, x = NULL, predict_data = NULL, pairs = NULL,
     }
     n <- validate_curve_n(n)
     background_n <- validate_background_n(background_n)
+
+    if (!is.logical(extrapolate) || length(extrapolate) != 1L ||
+        is.na(extrapolate)) {
+        stop("extrapolate must be TRUE or FALSE")
+    }
 
     if (missing(zlab) && method == "ale") {
         zlab <- "ALE\n(2nd order)"
@@ -264,6 +278,7 @@ bivariate <- function(model, x = NULL, predict_data = NULL, pairs = NULL,
             model = model,
             ale_rows = ale_rows,
             spec = spec,
+            extrapolate = extrapolate,
             fun = fun,
             response = response,
             ...
@@ -533,7 +548,8 @@ build_pdp_surface_table <- function(model, background_rows, spec, fun,
 }
 
 
-build_ale_surface_table <- function(model, ale_rows, spec, fun, response, ...) {
+build_ale_surface_table <- function(model, ale_rows, spec, fun, response,
+                                    extrapolate = FALSE, ...) {
     if (is.null(spec$x_breaks) || is.null(spec$y_breaks)) {
         stop("ALE surface specs must include numeric breakpoints")
     }
@@ -638,10 +654,12 @@ build_ale_surface_table <- function(model, ale_rows, spec, fun, response, ...) {
     # Mask cells with no observations: their accumulated value depends on
     # neighbour-mean imputation and should not be plotted as a confident
     # estimate of the interaction surface. We keep the imputed values in
-    # `raw_surface` for the accumulation/centring math, but expose NA on the
-    # outer layer so that downstream plotting and limit calculations exclude
-    # unsupported regions.
-    centred_surface[counts == 0L] <- NA_real_
+    # `raw_surface` for the accumulation/centring math. By default we expose
+    # NA on unsupported cells so downstream plots mark them explicitly, but
+    # callers can opt in to showing the interpolated values.
+    if (!isTRUE(extrapolate)) {
+        centred_surface[counts == 0L] <- NA_real_
+    }
 
     cell_index <- build_bivariate_index_grid(spec$x_values, spec$y_values)
 

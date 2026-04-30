@@ -1,14 +1,20 @@
-#' Ensemble response curves across fitted models
+#' Aggregated response curves across fitted models
 #'
 #' Plot profile, partial dependence, or accumulated local effects curves for
 #' several fitted models on a common predictor grid, then combine the
-#' model-specific curves into an ensemble curve.
+#' model-specific curves into a summary curve. This can be used for ensembles,
+#' cross-validation folds, bootstrap refits, or comparisons across different
+#' background samples and related training sets.
 #'
 #' @details
-#' `multimodel()` is intended for ensemble modelling workflows, such as species
-#' distribution models where alternative algorithms or model specifications are
-#' fit to the same response and predictor set. Each ensemble member is first
-#' converted to the same one-dimensional curve type used by [univariate()]. For
+#' `multimodel()` is useful for formal ensemble modelling workflows, such as
+#' species distribution models where alternative algorithms or model
+#' specifications are fit to the same response and predictor set. It is also
+#' useful for repeated-fit comparisons, such as cross-validation folds,
+#' bootstrap or bagged refits, models trained with different background
+#' samples, or sensitivity checks across related training sets. Each fitted
+#' model is first converted to the same one-dimensional curve type used by
+#' [univariate()]. For
 #' model \eqn{r}, write this curve as \eqn{h_r(z)}. The displayed ensemble
 #' curve is
 #' \deqn{H(z) = A\{h_1(z), \ldots, h_R(z)\},}
@@ -34,9 +40,10 @@
 #' `interval = "quantile"` instead draws central pointwise quantiles of the
 #' model-specific curve values.
 #'
-#' @param models A list of fitted ensemble member models that support
-#'   prediction. Models should be fitted to compatible predictor variables and
-#'   return predictions on the same response scale.
+#' @param models A list of fitted models that support prediction. These may be
+#'   ensemble members, cross-validation folds, bootstrap refits, or other
+#'   repeated fits. Models should be fitted to compatible predictor variables
+#'   and return predictions on the same response scale.
 #' @param x A data frame or raster containing predictor variables. If
 #'   `predict_data` is provided, this argument is ignored.
 #' @param predict_data A data frame containing values at which predictions
@@ -60,7 +67,7 @@
 #'   along the curve. Defaults to `mean`.
 #' @param weights Optional numeric vector of model weights with the same length
 #'   as `models`.
-#' @param interval Character, interval type drawn around the ensemble curve.
+#' @param interval Character, interval type drawn around the summary curve.
 #'   `"sd"` draws a standard deviation ribbon, `"quantile"` draws a central
 #'   quantile ribbon using `interval_level`, and `"none"` disables the ribbon.
 #' @param interval_level Numeric in `(0, 1)` giving the central quantile width
@@ -79,8 +86,8 @@
 #' @param response Optional column name or index to select when `fun` returns
 #'   multiple predictions per row. If `NULL` and exactly two prediction columns
 #'   are returned, the second column is used.
-#' @param show_models Logical, whether to overlay individual ensemble member
-#'   curves beneath the ensemble curve (default: `FALSE`).
+#' @param show_models Logical, whether to overlay individual model curves
+#'   beneath the summary curve (default: `FALSE`).
 #'
 #' @return A `ggplot2` object containing the response curves arranged in a grid.
 #'

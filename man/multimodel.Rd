@@ -2,7 +2,7 @@
 % Please edit documentation in R/multimodel.R
 \name{multimodel}
 \alias{multimodel}
-\title{Ensemble response curves across fitted models}
+\title{Aggregated response curves across fitted models}
 \usage{
 multimodel(
   models,
@@ -28,9 +28,10 @@ multimodel(
 )
 }
 \arguments{
-\item{models}{A list of fitted ensemble member models that support
-prediction. Models should be fitted to compatible predictor variables and
-return predictions on the same response scale.}
+\item{models}{A list of fitted models that support prediction. These may be
+ensemble members, cross-validation folds, bootstrap refits, or other
+repeated fits. Models should be fitted to compatible predictor variables
+and return predictions on the same response scale.}
 
 \item{x}{A data frame or raster containing predictor variables. If
 \code{predict_data} is provided, this argument is ignored.}
@@ -64,7 +65,7 @@ along the curve. Defaults to \code{mean}.}
 \item{weights}{Optional numeric vector of model weights with the same length
 as \code{models}.}
 
-\item{interval}{Character, interval type drawn around the ensemble curve.
+\item{interval}{Character, interval type drawn around the summary curve.
 \code{"sd"} draws a standard deviation ribbon, \code{"quantile"} draws a central
 quantile ribbon using \code{interval_level}, and \code{"none"} disables the ribbon.}
 
@@ -92,8 +93,8 @@ automatically determined.}
 \item{ncols}{Integer, number of columns in the plot grid. If \code{NULL}, it is
 automatically determined.}
 
-\item{show_models}{Logical, whether to overlay individual ensemble member
-curves beneath the ensemble curve (default: \code{FALSE}).}
+\item{show_models}{Logical, whether to overlay individual model curves
+beneath the summary curve (default: \code{FALSE}).}
 }
 \value{
 A \code{ggplot2} object containing the response curves arranged in a grid.
@@ -101,13 +102,19 @@ A \code{ggplot2} object containing the response curves arranged in a grid.
 \description{
 Plot profile, partial dependence, or accumulated local effects curves for
 several fitted models on a common predictor grid, then combine the
-model-specific curves into an ensemble curve.
+model-specific curves into a summary curve. This can be used for ensembles,
+cross-validation folds, bootstrap refits, or comparisons across different
+background samples and related training sets.
 }
 \details{
-\code{multimodel()} is intended for ensemble modelling workflows, such as species
-distribution models where alternative algorithms or model specifications are
-fit to the same response and predictor set. Each ensemble member is first
-converted to the same one-dimensional curve type used by \code{\link[=univariate]{univariate()}}. For
+\code{multimodel()} is useful for formal ensemble modelling workflows, such as
+species distribution models where alternative algorithms or model
+specifications are fit to the same response and predictor set. It is also
+useful for repeated-fit comparisons, such as cross-validation folds,
+bootstrap or bagged refits, models trained with different background
+samples, or sensitivity checks across related training sets. Each fitted
+model is first converted to the same one-dimensional curve type used by
+\code{\link[=univariate]{univariate()}}. For
 model \eqn{r}, write this curve as \eqn{h_r(z)}. The displayed ensemble
 curve is
 \deqn{H(z) = A\{h_1(z), \ldots, h_R(z)\},}
