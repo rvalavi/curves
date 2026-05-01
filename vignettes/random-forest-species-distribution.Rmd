@@ -1,8 +1,8 @@
 ---
-title: "Species Distribution Example with Random Forest"
+title: "Species Distribution Response Curves"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Species Distribution Example with Random Forest}
+  %\VignetteIndexEntry{Species Distribution Response Curves}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -19,18 +19,22 @@ knitr::opts_chunk$set(
 
 species_example <- requireNamespace("disdat", quietly = TRUE) &&
   requireNamespace("randomForest", quietly = TRUE)
+
+ensemble_example <- species_example &&
+  requireNamespace("mgcv", quietly = TRUE)
 ```
 
 This vignette shows a compact species distribution workflow using
 [`disdat`](https://cran.r-project.org/package=disdat) data, a down-sampled
-random forest classifier, and `curves` response plots.
+random forest classifier, and model-agnostic response plots from `curves`.
 
 The example uses one species from New South Wales (`"nsw14"`), combines its
 presence records with 10,000 random background points, and then down-samples
 the background class during model fitting so each tree sees a balanced sample.
 
-The code below is shown in full, and is only evaluated when the optional
-packages `disdat` and `randomForest` are installed.
+The code below is shown in full. It is evaluated when the optional packages
+`disdat` and `randomForest` are installed; the short ensemble example also
+requires `mgcv`.
 
 ## Prepare the training data
 
@@ -51,14 +55,25 @@ covars <- c(
 training <- training[, c("occ", covars)]
 training$vegsys <- as.factor(training$vegsys)
 
+numeric_covars <- setdiff(covars, "vegsys")
+training[numeric_covars] <- lapply(
+  training[numeric_covars],
+  function(x) as.numeric(scale(x))
+)
+
 head(training[, 1:5])
 ```
+
+The numeric covariates are centred and scaled to keep the example plots on
+comparable axes. This is only for readability; `curves` does not require
+standardised predictors.
 
 ## Fit a down-sampled random forest
 
 `randomForest::randomForest()` can balance each bootstrap sample with
 `sampsize`. Here the number of background samples drawn for each tree is set to
-the number of presences, which is a common way to reduce class imbalance.
+the number of presences, which is a common way to reduce class imbalance. The
+number of trees is deliberately modest so the vignette remains quick to build.
 
 ```{r, eval = species_example, message = FALSE, warning = FALSE}
 # get the number of presences (before converting to factors);
@@ -67,10 +82,11 @@ smpsize <- c("0" = pr_num, "1" = pr_num)
 
 training$occ <- as.factor(training$occ)
 
+set.seed(20260501)
 rf_model <- randomForest::randomForest(
   occ ~ .,
   data = training,
-  ntree = 1000,
+  ntree = 500,
   sampsize = smpsize,
   replace = TRUE
 )
@@ -80,14 +96,17 @@ rf_model <- randomForest::randomForest(
 
 For binary classification models, `predict(..., type = "prob")` returns one
 column per class. In this example the presence class is `"1"`, so the response
-plots use `response = "1"` to make that choice explicit.
+plots use `response = "1"` to make that choice explicit. Because the model is
+fit with presences and background samples rather than confirmed absences, the
+plotted values are interpreted as relative likelihoods, not occurrence
+probabilities.
 
 ```{r, eval = species_example, fig.height = 8, message = FALSE, warning = FALSE}
-dat <- training[, covars]
+predictors <- training[, covars]
 
 curves::univariate(
   rf_model,
-  dat,
+  predictors,
   method = "profile",
   type = "prob",
   response = "1",
@@ -95,18 +114,19 @@ curves::univariate(
 )
 ```
 
-The same interface can now be used for partial dependence, ICE, and ALE
-plots. `method = "pdp"` averages over sampled predictor combinations from
-`dat`, whereas `method = "ice+pdp"` overlays that average on top of the
-sampled ICE curves. Here `n = 30` controls the grid resolution for numeric
-predictors, while `background_n` controls how many background rows are
-randomly sampled for PDP/ICE. For `method = "pdp"`, `interval = "quantile"`
-can be used to show a central quantile band around the averaged curve.
+The same interface can be used for partial dependence, ICE, and ALE plots.
+`method = "pdp"` averages predictions over sampled rows from `dat`, whereas
+`method = "ice+pdp"` overlays that average on top of the sampled ICE curves.
+Here `n = 100` controls the grid resolution for numeric predictors, while
+`background_n` controls how many rows are sampled for PDP/ICE. For
+`method = "pdp"`, `interval = "quantile"` can be used to show a central
+pointwise band around the averaged curve.
 
-```{r, eval = species_example, fig.height=8, message = FALSE, warning = FALSE}
+```{r, eval = species_example, fig.height = 8, message = FALSE, warning = FALSE}
+set.seed(20260501)
 curves::univariate(
   rf_model,
-  dat,
+  predictors,
   method = "pdp",
   n = 100,
   background_n = 200,
@@ -119,9 +139,10 @@ curves::univariate(
 ```
 
 ```{r, eval = species_example, fig.height = 8, message = FALSE, warning = FALSE}
+set.seed(20260502)
 curves::univariate(
   rf_model,
-  dat,
+  predictors,
   method = "ice+pdp",
   n = 100,
   background_n = 200,
@@ -134,12 +155,13 @@ curves::univariate(
 ALE curves accumulate local finite differences within the observed predictor
 distribution, which often makes them less sensitive than PDPs to strongly
 correlated predictors. In `curves`, univariate ALE supports both numeric and
-factor predictors; this example focuses on numeric covariates.
+factor predictors; bivariate ALE surfaces currently use numeric predictor
+pairs.
 
 ```{r, eval = species_example, fig.height = 8, message = FALSE, warning = FALSE}
 curves::univariate(
   rf_model,
-  dat,
+  predictors,
   method = "ale",
   n = 40,
   type = "prob",
@@ -148,13 +170,14 @@ curves::univariate(
 )
 ```
 
-The next examples follow the original workflow closely by plotting the second
-and third predictors in `covars`, which correspond to `mi` and `rainann`.
+The bivariate examples use `mi` and `rainann`, two numeric covariates in the
+training data.
 
-```{r, eval = species_example, fig.width=5.6, fig.height=4, message = FALSE, warning = FALSE}
+```{r, eval = species_example, fig.width = 5.6, fig.height = 4, message = FALSE, warning = FALSE}
+set.seed(20260503)
 curves::bivariate(
   rf_model,
-  dat,
+  predictors,
   pairs = c(2, 3),
   method = "pdp",
   background_n = 200,
@@ -170,13 +193,13 @@ For correlated covariates, a centred bivariate ALE surface is often more
 stable than a PDP surface because it accumulates local differences only where
 the data are observed.
 
-```{r, eval = species_example, fig.width=5.6, fig.height=4, message = FALSE, warning = FALSE}
+```{r, eval = species_example, fig.width = 5.6, fig.height = 4, message = FALSE, warning = FALSE}
 curves::bivariate(
   rf_model,
-  dat,
+  predictors,
   pairs = c(2, 3),
   method = "ale",
-  n = 12,
+  n = 40,
   plot_type = "heatmap",
   type = "prob",
   response = "1",
@@ -184,20 +207,75 @@ curves::bivariate(
 )
 ```
 
+## Ensemble response curves
+
+Species distribution modelling often uses ensembles of models fit to the same
+response and predictors. `multimodel()` computes the chosen response-curve
+method for each ensemble member, then combines those curves pointwise. This
+short example fits a random forest and a GAM to the same two predictors and
+puts both models on the predicted relative likelihood scale before averaging.
+
+```{r, eval = ensemble_example, fig.width = 7, fig.height = 4.5, message = FALSE, warning = FALSE}
+ensemble_covars <- c("mi", "rainann")
+ensemble_training <- training[, c("occ", ensemble_covars)]
+
+set.seed(20260504)
+rf_member <- randomForest::randomForest(
+  occ ~ .,
+  data = ensemble_training,
+  ntree = 300,
+  sampsize = smpsize,
+  replace = TRUE
+)
+
+gam_training <- transform(
+  ensemble_training,
+  occ_num = as.integer(as.character(occ))
+)
+
+gam_member <- mgcv::gam(
+  occ_num ~ s(mi, k = 6) + s(rainann, k = 6),
+  data = gam_training,
+  family = binomial(),
+  method = "REML"
+)
+
+
+rf_likelihood <- function(model, newdata) {
+  predict(model, newdata, type = "prob")[, "1"]
+}
+
+gam_likelihood <- function(model, newdata) {
+  as.numeric(stats::predict(model, newdata, type = "response"))
+}
+
+set.seed(20260505)
+curves::multimodel(
+  list(rf_member, gam_member),
+  ensemble_training[, ensemble_covars],
+  fun = list(rf_likelihood, gam_likelihood),
+  method = "pdp",
+  n = 60,
+  background_n = 200,
+  show_models = TRUE,
+  ylab = "Relative likelihood"
+)
+```
+
 For a 3D surface, a small wrapper around `predict()` is still convenient when
-you want direct control over the returned probability vector.
+you want direct control over the returned prediction vector.
 
 ```{r, eval = species_example && requireNamespace("plotly", quietly = TRUE), message = FALSE, warning = FALSE}
-rf_prob <- function(model, newdata) {
+rf_likelihood <- function(model, newdata) {
   predict(model, newdata, type = "prob")[, "1"]
 }
 
 curves::bivariate(
   rf_model,
-  dat,
+  predictors,
   pairs = c(2, 3),
   plot_type = "surface",
-  fun = rf_prob,
+  fun = rf_likelihood,
   zlab = "Relative likelihood"
 )
 ```

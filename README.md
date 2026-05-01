@@ -1,8 +1,7 @@
 # curves <img src="man/figures/logo.png" align="right" width="120"/>
 
-[![R build
-status](https://github.com/rvalavi/curves/workflows/R-CMD-check/badge.svg)](https://github.com/rvalavi/curves/actions)
-[![Lifecycle:Experimental](https://img.shields.io/badge/Lifecycle-Experimental-339999)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+[![R build status](https://github.com/rvalavi/curves/workflows/R-CMD-check/badge.svg)](https://github.com/rvalavi/curves/actions)
+[![CRAN version](https://www.r-pkg.org/badges/version/curves)](https://CRAN.R-project.org/package=curves)
 
 **curves** is an experimental R package for plotting response curves from
 fitted models with **ggplot2**. The package is intentionally small and
@@ -127,7 +126,7 @@ The package includes a fuller
 [species distribution vignette](vignettes/random-forest-species-distribution.Rmd)
 built around a down-sampled random forest classifier. It demonstrates:
 
-- class-probability plots with `response = "1"`
+- presence-class response plots with `response = "1"`
 - profile, PDP, ICE, and ALE workflows through `univariate()`
 - bivariate profile, PDP, and ALE surfaces with an optional 3D surface
 
@@ -136,11 +135,6 @@ You can open it after installation with:
 ```r
 vignette("random-forest-species-distribution", package = "curves")
 ```
-
-<img src="man/figures/readme-bivariate.png" alt="Bivariate ALE surface from the species distribution vignette" width="70%" />
-
-The bivariate figure shows a centred ALE surface for two predictors from the
-same random forest example.
 
 ## Interactive map-linked curves
 

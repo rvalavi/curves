@@ -14,7 +14,7 @@ aggregation across multiple fitted models, and an interactive map-linked
 curve explorer.
 }
 \references{
-Valavi, R. (2025) curves: an R package for response curve plotting.
+Valavi, R. (2026) curves: Model-Agnostic Response Curves for Fitted Models.
 
 Molnar, C. (2025). \emph{Interpretable Machine Learning: A Guide for Making Black
 Box Models Explainable} (3rd ed.). \url{https://christophm.github.io/interpretable-ml-book/}

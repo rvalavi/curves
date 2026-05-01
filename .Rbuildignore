@@ -7,5 +7,6 @@
 ^curves\.Rcheck$
 ^\.RData$
 ^\.Rhistory$
-^\.DS_Store$
+(^|/)\.DS_Store$
+^vignettes/.*\.html$
 ^curves_.*\.tar\.gz$
