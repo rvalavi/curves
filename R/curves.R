@@ -4,10 +4,11 @@
 #' `curves` provides model-agnostic plots for inspecting fitted prediction
 #' functions. It supports univariate profile, PDP, ICE, and ALE curves,
 #' bivariate profile, PDP, and second-order ALE surfaces, ensemble curve
-#' aggregation across multiple fitted models, and an interactive map-linked
-#' curve explorer.
+#' aggregation across multiple fitted models, ALE-based interaction ranking,
+#' and an interactive map-linked curve explorer.
 #'
-#' @seealso [univariate()], [bivariate()], [multimodel()], [mapcurve()]
+#' @seealso [univariate()], [bivariate()], [multimodel()], [interactions()],
+#'   [mapcurve()]
 #'
 #' @references
 #' Valavi, R. (2026) curves: Model-Agnostic Response Curves for Fitted Models.

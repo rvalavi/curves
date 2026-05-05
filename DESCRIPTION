@@ -1,22 +1,25 @@
 Package: curves
 Type: Package
 Title: Model-Agnostic Response Curves for Fitted Models
-Version: 0.3.1
+Version: 0.4.0
 Authors@R: c(
     person(
       "Roozbeh", "Valavi",
       email = "valavi.r@gmail.com",
-      role = c("aut", "cre")
+      role = c("aut", "cre"),
+      comment = c(ORCID = "0000-0003-2495-5277")
     )
   )
 Description: Create model-agnostic response-curve diagnostics for fitted
     prediction models. Supports profile curves, partial dependence,
     individual conditional expectation, and accumulated local effects;
     univariate curves, bivariate surfaces, ensemble summaries across
-    multiple models, and optional raster-linked exploration with 'terra'
-    and 'shiny'. Static displays are returned as 'ggplot2' plots.
+    multiple models, ALE-based interaction ranking, and optional
+    raster-linked exploration with 'terra' and 'shiny'. Static displays
+    are returned as 'ggplot2' plots.
 URL: https://github.com/rvalavi/curves
 BugReports: https://github.com/rvalavi/curves/issues
+Maintainer: Roozbeh Valavi <valavi.r@gmail.com>
 License: GPL-3
 Encoding: UTF-8
 Depends:

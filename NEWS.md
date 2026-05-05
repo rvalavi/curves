@@ -1,3 +1,13 @@
+# curves 0.4.0
+
+## New features
+
+- Added `interactions()`, which ranks numeric predictor pairs by the
+  count-weighted magnitude of their centred second-order ALE surfaces.
+- Added `top_n` to `bivariate()` for `method = "ale"` so the plotting
+  interface can rank all eligible pairs with `interactions()` and display only
+  the strongest interaction surfaces.
+
 # curves 0.3.1
 
 ## Fixes

@@ -38,7 +38,13 @@
 #' model response is higher than would be expected from adding the two
 #' first-order ALE effects alone, negative values indicate combinations where
 #' the joint effect is lower than that additive expectation, and values near
-#' zero indicate little additional interaction.
+#' zero indicate little additional interaction. For GLMs and other models with
+#' a nonlinear inverse link, this interpretation depends on the prediction
+#' scale: a model that is additive on the link scale can still show non-zero
+#' second-order ALE on the response scale. For example, a binomial `glm`
+#' without explicit interaction terms can still produce bivariate ALE structure
+#' when `type = "response"` because the inverse-logit is nonlinear; use
+#' `type = "link"` to inspect interaction in the linear predictor instead.
 #'
 #' Cells that contain no observations are treated as unsupported: the cell
 #' effect is interpolated from neighbouring cells so the accumulation can run,
@@ -58,6 +64,11 @@
 #'   `NULL` to plot all unique pairs, a character or numeric vector of length 2
 #'   for a single pair, or a list/data frame/matrix of pairs. Numeric pairs are
 #'   interpreted as predictor column indices.
+#' @param top_n Optional integer limit on the number of ALE pairs to plot after
+#'   ranking them from highest to lowest interaction strength with
+#'   [interactions()]. This is only supported when `method = "ale"` and can be
+#'   used with `pairs = NULL` to keep, for example, only the top 5 ranked
+#'   interaction surfaces.
 #' @param fun A function used to generate predictions from the model. If
 #'   `NULL`, the generic `predict()` is used.
 #' @param ... Additional arguments passed to `fun`.
@@ -154,6 +165,7 @@
 #'   surface_plot
 #' }
 bivariate <- function(model, x = NULL, predict_data = NULL, pairs = NULL,
+                      top_n = NULL,
                       fun = NULL, ..., n = 40,
                       background_n = n, extrapolate = FALSE, rug = FALSE,
                       plot_type = c("heatmap", "contour", "surface"),
@@ -176,10 +188,15 @@ bivariate <- function(model, x = NULL, predict_data = NULL, pairs = NULL,
     }
     n <- validate_curve_n(n)
     background_n <- validate_background_n(background_n)
+    top_n <- validate_top_n(top_n)
 
     if (!is.logical(extrapolate) || length(extrapolate) != 1L ||
         is.na(extrapolate)) {
         stop("extrapolate must be TRUE or FALSE")
+    }
+
+    if (!is.null(top_n) && method != "ale") {
+        stop("top_n is only supported when method = \"ale\"")
     }
 
     if (missing(zlab) && method == "ale") {
@@ -215,24 +232,15 @@ bivariate <- function(model, x = NULL, predict_data = NULL, pairs = NULL,
     )
 
     x_df <- validate_predictors(x_source, sample_size = sample_size)
-    pair_specs <- build_pair_specs(x_df, pairs = pairs, n = n, method = method)
     pair_specs <- if (method == "ale") {
-        filter_ale_pair_specs(pair_specs)
+        NULL
     } else {
-        pair_specs
+        build_pair_specs(x_df, pairs = pairs, n = n, method = method)
     }
     npairs <- length(pair_specs)
 
-    if (!npairs) {
-        if (method == "ale") {
-            stop("ALE requires at least one numeric predictor pair to plot")
-        }
-
+    if (method != "ale" && !npairs) {
         stop("No valid predictor pairs remain to plot")
-    }
-
-    if (plot_type == "surface" && npairs != 1L) {
-        stop("plot_type = \"surface\" requires a single predictor pair")
     }
 
     if (rug && plot_type == "surface") {
@@ -245,45 +253,88 @@ bivariate <- function(model, x = NULL, predict_data = NULL, pairs = NULL,
     } else {
         NULL
     }
-    ale_rows <- if (method == "ale") {
-        complete_predictor_rows(x_df, context = "ALE methods")
-    } else {
-        NULL
-    }
-
-    tables <- lapply(pair_specs, function(spec) {
-        if (method == "profile") {
-            return(build_profile_surface_table(
+    if (method == "ale") {
+        ale_results <- tryCatch(
+            interactions(
                 model = model,
-                reference_row = reference_row,
-                spec = spec,
+                predict_data = x_df,
+                pairs = pairs,
                 fun = fun,
+                n = n,
                 response = response,
+                details = TRUE,
                 ...
-            ))
+            ),
+            error = function(err) {
+                if (identical(
+                    conditionMessage(err),
+                    "ALE interaction ranking requires at least one numeric predictor pair"
+                )) {
+                    stop("ALE requires at least one numeric predictor pair to plot")
+                }
+
+                stop(err)
+            }
+        )
+
+        pair_specs <- ale_results$pair_specs
+        npairs <- length(pair_specs)
+
+        if (!npairs) {
+            stop("ALE requires at least one numeric predictor pair to plot")
         }
 
-        if (method == "pdp") {
-            return(build_pdp_surface_table(
+        if (!is.null(top_n)) {
+            keep_pairs <- ale_results$ranking$pair_id[
+                seq_len(min(top_n, nrow(ale_results$ranking)))
+            ]
+            pair_index <- as.integer(sub("^pair_", "", keep_pairs))
+            pair_specs <- pair_specs[pair_index]
+            tables <- lapply(keep_pairs, function(pair_id) {
+                table <- ale_results$tables[[pair_id]]
+                if (!isTRUE(extrapolate)) {
+                    table$z[table$count == 0L] <- NA_real_
+                }
+                table
+            })
+            names(tables) <- keep_pairs
+        } else {
+            tables <- lapply(ale_results$tables, function(table) {
+                if (!isTRUE(extrapolate)) {
+                    table$z[table$count == 0L] <- NA_real_
+                }
+                table
+            })
+        }
+    } else {
+        tables <- lapply(pair_specs, function(spec) {
+            if (method == "profile") {
+                return(build_profile_surface_table(
+                    model = model,
+                    reference_row = reference_row,
+                    spec = spec,
+                    fun = fun,
+                    response = response,
+                    ...
+                ))
+            }
+
+            build_pdp_surface_table(
                 model = model,
                 background_rows = background_rows,
                 spec = spec,
                 fun = fun,
                 response = response,
                 ...
-            ))
-        }
+            )
+        })
+    }
 
-        build_ale_surface_table(
-            model = model,
-            ale_rows = ale_rows,
-            spec = spec,
-            extrapolate = extrapolate,
-            fun = fun,
-            response = response,
-            ...
-        )
-    })
+    npairs <- length(pair_specs)
+
+    if (plot_type == "surface" && npairs != 1L) {
+        stop("plot_type = \"surface\" requires a single predictor pair")
+    }
 
     if (plot_type == "surface") {
         return(plot_surface_3D(

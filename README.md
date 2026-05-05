@@ -15,12 +15,14 @@ distribution vignette.
 
 ## Current package scope
 
-The current API is centred around four exported functions:
+The current API is centred around five exported functions:
 
 - `univariate()` for one-predictor response curves with
   `method = "profile"`, `"pdp"`, `"ice"`, `"ice+pdp"`, or `"ale"`.
 - `bivariate()` for two-predictor profile, PDP, or ALE surfaces as static
   heatmaps, filled contours, or interactive 3D `plotly` surfaces.
+- `interactions()` for ranking numeric predictor pairs by the strength of
+  their centred second-order ALE interaction surfaces.
 - `multimodel()` for ensemble profile, PDP, or ALE curves across multiple
   fitted models, with optional interval ribbons and member-model overlays.
 - `mapcurve()` for Shiny-based exploration that links a
@@ -92,6 +94,12 @@ bivariate(
   rug = TRUE,
   plot_type = "heatmap"
 )
+
+# Rank pairwise ALE interactions
+interactions(model, predictors, n = 10)
+
+# Plot only the strongest ALE surfaces
+bivariate(model, predictors, method = "ale", top_n = 3, n = 10)
 ```
 
 For ensemble modelling or repeated-fit comparisons, pass a list of fitted

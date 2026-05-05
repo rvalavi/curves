@@ -9,6 +9,7 @@ bivariate(
   x = NULL,
   predict_data = NULL,
   pairs = NULL,
+  top_n = NULL,
   fun = NULL,
   ...,
   n = 40,
@@ -38,6 +39,12 @@ should be made. If \code{NULL}, \code{x} must be provided.}
 \code{NULL} to plot all unique pairs, a character or numeric vector of length 2
 for a single pair, or a list/data frame/matrix of pairs. Numeric pairs are
 interpreted as predictor column indices.}
+
+\item{top_n}{Optional integer limit on the number of ALE pairs to plot after
+ranking them from highest to lowest interaction strength with
+\code{\link[=interactions]{interactions()}}. This is only supported when \code{method = "ale"} and can be
+used with \code{pairs = NULL} to keep, for example, only the top 5 ranked
+interaction surfaces.}
 
 \item{fun}{A function used to generate predictions from the model. If
 \code{NULL}, the generic \code{predict()} is used.}
@@ -133,7 +140,13 @@ been removed. Positive values indicate predictor combinations where the
 model response is higher than would be expected from adding the two
 first-order ALE effects alone, negative values indicate combinations where
 the joint effect is lower than that additive expectation, and values near
-zero indicate little additional interaction.
+zero indicate little additional interaction. For GLMs and other models with
+a nonlinear inverse link, this interpretation depends on the prediction
+scale: a model that is additive on the link scale can still show non-zero
+second-order ALE on the response scale. For example, a binomial \code{glm}
+without explicit interaction terms can still produce bivariate ALE structure
+when \code{type = "response"} because the inverse-logit is nonlinear; use
+\code{type = "link"} to inspect interaction in the linear predictor instead.
 
 Cells that contain no observations are treated as unsupported: the cell
 effect is interpolated from neighbouring cells so the accumulation can run,
