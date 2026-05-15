@@ -46,7 +46,13 @@ local prediction differences within the observed predictor distribution.
 
 ## Installation
 
-`curves` is not on CRAN. Install the development version from GitHub:
+Install the released version from CRAN:
+
+```r
+install.packages("curves")
+```
+
+Install the development version from GitHub:
 
 ```r
 install.packages("remotes")

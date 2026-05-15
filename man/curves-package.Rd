@@ -24,7 +24,7 @@ Box Models Explainable} (3rd ed.). \url{https://christophm.github.io/interpretab
 \code{\link[=mapcurve]{mapcurve()}}
 }
 \author{
-\strong{Maintainer}: Roozbeh Valavi \email{valavi.r@gmail.com}
+\strong{Maintainer}: Roozbeh Valavi \email{valavi.r@gmail.com} (\href{https://orcid.org/0000-0003-2495-5277}{ORCID})
 
 }
 \keyword{internal}

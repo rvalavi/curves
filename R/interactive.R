@@ -862,6 +862,9 @@ extract_raster_values <- function(x, locations) {
 
 plot_prediction_map <- function(map, selection, palette, title, marker_color,
                                 crosshair, theme) {
+    oldpar <- graphics::par(no.readonly = TRUE)
+    on.exit(graphics::par(oldpar), add = TRUE)
+
     graphics::par(
         bg = theme$map_bg,
         fg = theme$map_text,
