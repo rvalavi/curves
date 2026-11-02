@@ -2,6 +2,7 @@
 
 [![R build status](https://github.com/rvalavi/curves/workflows/R-CMD-check/badge.svg)](https://github.com/rvalavi/curves/actions)
 [![CRAN version](https://www.r-pkg.org/badges/version/curves)](https://CRAN.R-project.org/package=curves)
+[![CRAN downloads](https://cranlogs.r-pkg.org/badges/grand-total/curves)](https://CRAN.R-project.org/package=curves)
 
 **curves** is an experimental R package for plotting response curves from
 fitted models with **ggplot2**. The package is intentionally small and
